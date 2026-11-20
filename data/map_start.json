@@ -1,0 +1,13 @@
+{
+  "roads": [
+    { "from": [2, 7], "to": [13, 7] },
+    { "from": [7, 2], "to": [7, 13] },
+    { "from": [3, 11], "to": [6, 11] }
+  ],
+  "buildings": [
+    { "def": "prefeitura", "x": 8, "y": 6 },
+    { "def": "casa", "x": 6, "y": 6 },
+    { "def": "casa", "x": 6, "y": 8 },
+    { "def": "chale", "x": 8, "y": 8 }
+  ]
+}

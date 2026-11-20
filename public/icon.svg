@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5cc0f2"/>
+      <stop offset="1" stop-color="#bfe8fb"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="0" fill="url(#sky)"/>
+  <circle cx="400" cy="110" r="46" fill="#ffd84d"/>
+  <path d="M256 250 456 350 256 450 56 350z" fill="#7cc84a" stroke="#2b2b3a" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M56 350v24l200 100v-24z" fill="#8f5f32" stroke="#2b2b3a" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M456 350v24L256 474v-24z" fill="#a8723f" stroke="#2b2b3a" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M160 330v-80l90 45v80z" fill="#c9a24f" stroke="#2b2b3a" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M250 375v-80l90-45v80z" fill="#f3d27a" stroke="#2b2b3a" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M160 250 250 295 250 160z" fill="#b8422f" stroke="#2b2b3a" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M250 295 340 250 250 160z" fill="#e0533d" stroke="#2b2b3a" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M270 335v-30l26-13v30z" fill="#bfe6ff" stroke="#2b2b3a" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M305 318v-30l22-11v30z" fill="#8a5a3c" stroke="#2b2b3a" stroke-width="6" stroke-linejoin="round"/>
+</svg>

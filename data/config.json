@@ -1,0 +1,30 @@
+{
+  "map_size": 16,
+  "tile_w": 96,
+  "tile_h": 48,
+  "ground_depth": 18,
+  "time_multiplier": 1,
+  "construction_seconds": 6,
+  "autosave_seconds": 5,
+  "start": { "gold": 500, "grana": 3, "level": 1, "xp": 0, "city_name": "Cidade Feliz" },
+  "energy": { "max_base": 15, "regen_seconds": 90, "max_plus_every_levels": 2 },
+  "level_xp": { "base": 50, "per_level": 30 },
+  "grana_per_level": 1,
+  "road_cost": 10,
+  "xp": { "collect": 2, "build": 5, "road": 1 },
+  "tree": { "count": 26, "gold": 8, "xp": 3, "seed": 2010 },
+  "camera": { "zoom_min": 0.35, "zoom_max": 1.8 },
+  "colors": {
+    "grass": ["#7cc84a", "#6fbd3f", "#8ad457"],
+    "grass_line": "#4f8f2c",
+    "dirt": "#c48d52",
+    "dirt_side_left": "#8f5f32",
+    "dirt_side_right": "#a8723f",
+    "sidewalk": "#dcd6c8",
+    "asphalt": "#5b5f66",
+    "lane": "#f6f1df",
+    "sky_top": "#5cc0f2",
+    "sky_bottom": "#bfe8fb",
+    "outline": "#2b2b3a"
+  }
+}
