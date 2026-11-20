@@ -1,13 +1,15 @@
 {
-  "roads": [
+  "ruas": [
     { "from": [2, 7], "to": [13, 7] },
-    { "from": [7, 2], "to": [7, 13] },
-    { "from": [3, 11], "to": [6, 11] }
+    { "from": [7, 2], "to": [7, 13] }
   ],
-  "buildings": [
-    { "def": "prefeitura", "x": 8, "y": 6 },
-    { "def": "casa", "x": 6, "y": 6 },
-    { "def": "casa", "x": 6, "y": 8 },
-    { "def": "chale", "x": 8, "y": 8 }
+  "construcoes": [
+    { "k": "casa", "x": 5, "y": 6, "pronta_ha": 30 },
+    { "k": "casa", "x": 6, "y": 6, "pronta_ha": 8 },
+    { "k": "chale", "x": 8, "y": 6, "pronta_ha": 40 },
+    { "k": "casa", "x": 9, "y": 6, "pronta_ha": 5 },
+    { "k": "lanchonete", "x": 6, "y": 8, "pronta_ha": 35, "nome": "Lanchonete do Zé" },
+    { "k": "prefeitura", "x": 8, "y": 8, "pronta_ha": 0 },
+    { "k": "praca", "x": 5, "y": 8, "pronta_ha": 0 }
   ]
 }

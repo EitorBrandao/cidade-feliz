@@ -1,34 +1,19 @@
-[
-  { "id": "casa", "name": "Casa", "category": "casas", "price": { "gold": 100 }, "income": 25, "cycle": 20, "pop": 5, "level": 1, "build": 5, "named": "optional",
-    "look": { "shape": "house", "color": "#f3d27a", "roof": "#e0533d", "h": 24, "k": 0.72 } },
-  { "id": "chale", "name": "Chalé Azul", "category": "casas", "price": { "gold": 180 }, "income": 40, "cycle": 30, "pop": 7, "level": 1, "build": 6, "named": "optional",
-    "look": { "shape": "house", "color": "#8cc4ef", "roof": "#3d5a99", "h": 24, "k": 0.72 } },
-  { "id": "sobrado", "name": "Sobrado", "category": "casas", "price": { "gold": 350 }, "income": 70, "cycle": 45, "pop": 12, "level": 2, "build": 8, "named": "optional",
-    "look": { "shape": "house", "color": "#f2a65a", "roof": "#8e3b2e", "h": 42, "k": 0.74 } },
-  { "id": "predio", "name": "Prédio", "category": "casas", "price": { "grana": 3 }, "income": 160, "cycle": 60, "pop": 30, "level": 4, "build": 12, "named": "optional",
-    "look": { "shape": "tower", "color": "#c9d3dc", "accent": "#4a6fa5", "h": 80, "k": 0.74 } },
-
-  { "id": "lanchonete", "name": "Lanchonete", "category": "comercio", "price": { "gold": 250 }, "income": 55, "cycle": 30, "level": 1, "build": 6, "named": "required",
-    "look": { "shape": "shop", "color": "#ffe08a", "accent": "#e94b3c", "h": 26, "k": 0.78 } },
-  { "id": "padaria", "name": "Padaria", "category": "comercio", "price": { "gold": 400 }, "income": 90, "cycle": 45, "level": 2, "build": 8, "named": "required",
-    "look": { "shape": "shop", "color": "#f5deb3", "accent": "#b5651d", "h": 28, "k": 0.78 } },
-  { "id": "mercadinho", "name": "Mercadinho", "category": "comercio", "price": { "gold": 700 }, "income": 150, "cycle": 60, "level": 3, "build": 10, "named": "required",
-    "look": { "shape": "shop", "color": "#bfe3a5", "accent": "#2e8b57", "h": 30, "k": 0.8 } },
-  { "id": "sorveteria", "name": "Sorveteria", "category": "comercio", "price": { "grana": 2 }, "income": 120, "cycle": 40, "level": 1, "build": 6, "named": "required",
-    "look": { "shape": "shop", "color": "#ffd1e3", "accent": "#ff5fa0", "h": 26, "k": 0.78 } },
-
-  { "id": "escola", "name": "Escola", "category": "comunidade", "price": { "gold": 600 }, "popMax": 40, "level": 1, "build": 10, "named": "required",
-    "look": { "shape": "civic", "color": "#f6c453", "accent": "#c0392b", "h": 34, "k": 0.82 } },
-  { "id": "posto", "name": "Posto de Saúde", "category": "comunidade", "price": { "gold": 900 }, "popMax": 60, "level": 3, "build": 12, "named": "required",
-    "look": { "shape": "civic", "color": "#ffffff", "accent": "#e53935", "h": 34, "k": 0.82, "extra": "cross" } },
-
-  { "id": "praca", "name": "Praça", "category": "decoracao", "price": { "gold": 80 }, "level": 1, "build": 0, "xp": 2, "named": "none",
-    "look": { "shape": "plaza", "color": "#e3dccb", "accent": "#5ab4e6", "h": 0, "k": 0.92 } },
-  { "id": "arvore", "name": "Árvore", "category": "decoracao", "price": { "gold": 20 }, "level": 1, "build": 0, "xp": 1, "named": "none",
-    "look": { "shape": "tree", "color": "#4caf50", "h": 0, "k": 1 } },
-  { "id": "canteiro", "name": "Canteiro", "category": "decoracao", "price": { "gold": 40 }, "level": 1, "build": 0, "xp": 1, "named": "none",
-    "look": { "shape": "bed", "color": "#8d5a3b", "accent": "#ff7aa8", "h": 0, "k": 0.72 } },
-
-  { "id": "prefeitura", "name": "Prefeitura", "category": "inicial", "popMax": 30, "named": "none",
-    "look": { "shape": "civic", "color": "#f4f1e8", "accent": "#2f6fbf", "h": 46, "k": 0.86, "extra": "clock" } }
-]
+{
+  "categorias": [["casas", "Casas"], ["comercio", "Comércio"], ["comunidade", "Comunidade"], ["decoracao", "Decoração"]],
+  "construcoes": {
+    "casa": { "nome": "Casa", "cat": "casas", "preco": 100, "renda": 25, "tempo": 20, "pop": 5, "xp": 5, "build": 4, "draw": "house", "wall": "#f2e3c6", "roof": "#c8462f", "h": 26 },
+    "chale": { "nome": "Chalé Azul", "cat": "casas", "preco": 180, "renda": 40, "tempo": 30, "pop": 7, "xp": 6, "build": 4, "draw": "house", "wall": "#cfe6f5", "roof": "#2f6fae", "h": 26 },
+    "sobrado": { "nome": "Sobrado", "cat": "casas", "preco": 350, "renda": 70, "tempo": 45, "pop": 12, "xp": 10, "build": 6, "draw": "house", "wall": "#f6d2a8", "roof": "#7a4a2b", "h": 46, "floors": 2, "req": 2 },
+    "predio": { "nome": "Prédio", "cat": "casas", "preco": 3, "moeda": "grana", "renda": 160, "tempo": 60, "pop": 30, "xp": 20, "build": 8, "draw": "tower", "wall": "#dfe3e8", "roof": "#8a96a3", "h": 96, "req": 4 },
+    "lanchonete": { "nome": "Lanchonete", "cat": "comercio", "preco": 250, "renda": 55, "tempo": 30, "xp": 8, "build": 5, "draw": "shop", "wall": "#fff2f0", "roof": "#e53935", "sign": "#ffca28", "h": 30, "icon": "🍔" },
+    "padaria": { "nome": "Padaria", "cat": "comercio", "preco": 400, "renda": 90, "tempo": 45, "xp": 10, "build": 5, "draw": "shop", "wall": "#fff6e0", "roof": "#8d5a2b", "sign": "#ffe0a3", "h": 30, "icon": "🥖", "req": 2 },
+    "mercado": { "nome": "Mercadinho", "cat": "comercio", "preco": 700, "renda": 150, "tempo": 60, "xp": 14, "build": 6, "draw": "shop", "wall": "#eef9ec", "roof": "#2e9d4a", "sign": "#ffffff", "h": 34, "icon": "🛒", "req": 3 },
+    "sorveteria": { "nome": "Sorveteria", "cat": "comercio", "preco": 2, "moeda": "grana", "renda": 120, "tempo": 40, "xp": 12, "build": 5, "draw": "shop", "wall": "#fde7f3", "roof": "#e5568a", "sign": "#bfe6ff", "h": 30, "icon": "🍦" },
+    "escola": { "nome": "Escola", "cat": "comunidade", "preco": 600, "popMax": 40, "xp": 25, "build": 8, "draw": "school", "wall": "#ffe9a8", "roof": "#c0392b", "h": 36 },
+    "posto": { "nome": "Posto de Saúde", "cat": "comunidade", "preco": 900, "popMax": 60, "xp": 30, "build": 8, "draw": "school", "wall": "#ffffff", "roof": "#2c8fe0", "h": 36, "cross": true, "req": 3 },
+    "praca": { "nome": "Praça", "cat": "decoracao", "preco": 80, "xp": 6, "build": 2, "draw": "plaza" },
+    "arvore": { "nome": "Árvore", "cat": "decoracao", "preco": 20, "xp": 2, "build": 1, "draw": "tree" },
+    "flores": { "nome": "Canteiro", "cat": "decoracao", "preco": 40, "xp": 3, "build": 1, "draw": "flowers" },
+    "prefeitura": { "nome": "Prefeitura", "cat": "none", "popMax": 30, "draw": "hall" }
+  }
+}

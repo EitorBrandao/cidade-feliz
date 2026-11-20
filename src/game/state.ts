@@ -1,289 +1,564 @@
-// Regras do jogo. Funções puras que mexem no estado e devolvem o que mostrar.
-import { cfg, defs, mapStart, names, NAME_MAX } from './data'
-import type { ActionResult, Building, BuildingDef, GameState, Tile } from './types'
+// Regras do jogo: estado, economia, vizinhos bots, visitas e missões.
+// A interface conversa com isto pelo objeto `fx` (toasts, números flutuando, janelas).
+import { ASSESSOR, ATIVAS_MAX, BOTS, botById, cfg, DEFS, MISSOES, MSG, NOMES, PERFIS, START, type Bot, type Missao, type Tarefa } from './data'
+import { fill, hash, pick, rand, rng } from './util'
 
+export const N = cfg.map_size
 const SAVE_KEY = 'cidade-feliz-save-v1'
-const N = cfg.map_size
+const MULT = cfg.time_multiplier
 
-export const now = () => Date.now()
-export const cycleMs = (d: BuildingDef) => (d.cycle ?? 0) * 1000 * cfg.time_multiplier
-export const buildMs = (d: BuildingDef) => (d.build ?? cfg.construction_seconds) * 1000 * cfg.time_multiplier
-export const energyMax = (level: number) =>
-  cfg.energy.max_base + Math.floor((level - 1) / cfg.energy.max_plus_every_levels)
-export const xpNeed = (level: number) => cfg.level_xp.base + level * cfg.level_xp.per_level
-const regenMs = cfg.energy.regen_seconds * 1000
+export interface B { k: string; builtAt: number; start: number; nome?: string; help?: boolean }
+export interface Tile { r: boolean; b: B | null; tree: boolean }
+export type EvTipo = 'presente' | 'pedido' | 'fala' | 'visita' | 'nivel'
+export interface Ev { id: number; bot: string; tipo: EvTipo; texto: string; t: number; done: boolean; give?: { ouro?: number; energia?: number } }
+export interface State {
+  version: 3
+  map: Tile[]
+  ouro: number
+  grana: number
+  energia: number
+  eLast: number
+  xp: number
+  nivel: number
+  feed: Ev[]
+  unread: number
+  botLv: Record<string, number>
+  sent: Record<string, string>
+  cidade: string
+  placas: boolean
+  cnt: Record<string, number>
+  claimed: string[]
+  mbase: Record<string, Record<string, number>>
+  mseen: string[]
+  mnotif: string[]
+  pending: { at: number; ev: Ev }[]
+  lastSeen: number
+}
+export interface Visit { bot: Bot; map: Tile[]; helps: number }
+export type Mode = { type: 'none' } | { type: 'place'; k: string } | { type: 'road' }
+export interface ToastOpts { big?: boolean; bot?: Bot }
+export interface AskName { titulo: string; atual: string; sortear?: () => string; ok: (v: string) => void }
 
-export const inBounds = (x: number, y: number) => x >= 0 && y >= 0 && x < N && y < N
-export const isBorder = (x: number, y: number) => x === 0 || y === 0 || x === N - 1 || y === N - 1
-export const isRoad = (s: GameState, x: number, y: number) => inBounds(x, y) && s.tiles[y][x].road
-export const byUid = (s: GameState, uid: number) => s.buildings.find((b) => b.uid === uid)
-
-const pick = <T,>(list: T[]) => list[Math.floor(Math.random() * list.length)]
-
-export function suggestName(def: BuildingDef): string {
-  const list = names[def.id]
-  return list?.length ? pick(list) : def.name
+export const fx = {
+  toast: (_text: string, _o?: ToastOpts) => {},
+  float: (_x: number, _y: number, _text: string, _col: string, _up?: number) => {},
+  openBuilding: (_b: B) => {},
+  askName: (_o: AskName) => {},
+  visitChanged: () => {},
 }
 
-export function suggestCityName(): string {
-  return pick(names.cidade)
+// ---------- utilidades ----------
+
+export const isRoad = (map: Tile[], x: number, y: number) => x >= 0 && y >= 0 && x < N && y < N && map[y * N + x].r
+export const DIRS: [number, number, 't' | 'r' | 'b' | 'l', 't' | 'r' | 'b' | 'l'][] = [
+  [1, 0, 'r', 'b'], [-1, 0, 'l', 't'], [0, 1, 'b', 'l'], [0, -1, 't', 'r'],
+]
+const blankMap = (): Tile[] => Array.from({ length: N * N }, () => ({ r: false, b: null, tree: false }))
+export const precisaNome = (k: string) => ['comercio', 'comunidade'].includes(DEFS[k].cat)
+export const tempoMs = (k: string) => (DEFS[k].tempo ?? 0) * 1000 * MULT
+export const buildMs = (k: string) => (DEFS[k].build ?? 4) * 1000 * MULT
+export const need = (n: number) => cfg.nivel_xp.base + n * cfg.nivel_xp.por_nivel
+export const eMax = (nivel: number) => cfg.energia.max_base + Math.floor(nivel / cfg.energia.mais_um_a_cada_niveis)
+const regenMs = cfg.energia.regen_segundos * 1000
+
+export function sugerirNome(k: string, dono?: string, r: () => number = Math.random) {
+  const l = NOMES[k] || [DEFS[k].nome]
+  const opts = dono ? l : l.filter((s) => !s.includes('{n}'))
+  return pick(opts.length ? opts : l, r).replace('{n}', dono || '')
 }
+export const sugerirCidade = () => pick(NOMES.cidade)
+export const nomeDe = (b: B, cidade: string) => (b.k === 'prefeitura' ? `Prefeitura de ${cidade}` : b.nome || '')
 
-export const cleanName = (raw: string) => raw.replace(/\s+/g, ' ').trim().slice(0, NAME_MAX)
+// ---------- estado e save ----------
 
-// Gerador aleatório com semente, para as árvores do começo saírem sempre iguais.
-function seeded(seed: number) {
-  let a = seed >>> 0
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0
-    let t = a
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-export function newGame(t = now()): GameState {
-  const tiles: Tile[][] = []
-  for (let y = 0; y < N; y++) {
-    const row: Tile[] = []
-    for (let x = 0; x < N; x++) row.push({ road: false, tree: false, b: 0 })
-    tiles.push(row)
-  }
-  for (const r of mapStart.roads) {
+function newState(): State {
+  const m = blankMap()
+  const at = (x: number, y: number) => m[y * N + x]
+  const now = Date.now()
+  for (const r of START.ruas)
     for (let y = Math.min(r.from[1], r.to[1]); y <= Math.max(r.from[1], r.to[1]); y++)
-      for (let x = Math.min(r.from[0], r.to[0]); x <= Math.max(r.from[0], r.to[0]); x++)
-        if (inBounds(x, y) && !isBorder(x, y)) tiles[y][x].road = true
+      for (let x = Math.min(r.from[0], r.to[0]); x <= Math.max(r.from[0], r.to[0]); x++) at(x, y).r = true
+  for (const c of START.construcoes) at(c.x, c.y).b = { k: c.k, builtAt: 0, start: now - c.pronta_ha * 1000, nome: c.nome }
+  const R = rng(cfg.arvore.semente)
+  const c0 = (N - 1) / 2
+  m.forEach((t, i) => {
+    const x = i % N
+    const y = (i / N) | 0
+    const d = Math.max(Math.abs(x - c0), Math.abs(y - c0))
+    if (!t.r && !t.b && d > cfg.arvore.distancia_centro && R() < cfg.arvore.chance) t.tree = true
+  })
+  const botLv: Record<string, number> = {}
+  BOTS.forEach((b) => (botLv[b.id] = b.nivel ?? 1))
+  return {
+    version: 3, map: m, ouro: cfg.start.ouro, grana: cfg.start.grana, energia: cfg.start.energia, eLast: now,
+    xp: 0, nivel: cfg.start.nivel, feed: [], unread: 0, botLv, sent: {}, cidade: cfg.start.cidade, placas: true,
+    cnt: {}, claimed: [], mbase: {}, mseen: [], mnotif: [], pending: [], lastSeen: now,
   }
-  const s: GameState = {
-    version: 1,
-    cityName: cfg.start.city_name,
-    gold: cfg.start.gold,
-    grana: cfg.start.grana,
-    energy: energyMax(cfg.start.level),
-    energyAt: t,
-    level: cfg.start.level,
-    xp: cfg.start.xp,
-    tiles,
-    buildings: [],
-    nextUid: 1,
-    savedAt: t,
-  }
-  for (const sb of mapStart.buildings) {
-    const def = defs[sb.def]
-    const b: Building = {
-      uid: s.nextUid++, def: def.id, x: sb.x, y: sb.y,
-      name: sb.name ?? '',
-      readyAt: t,
-      lastCollect: t - cycleMs(def), // já começa com moeda pronta
+}
+
+/** Converte o save da primeira versão (antes do protótipo) sem perder a cidade. */
+function migrateV1(old: any): State {
+  const s = newState()
+  const rename: Record<string, string> = { mercadinho: 'mercado', canteiro: 'flores' }
+  s.map = blankMap()
+  for (let y = 0; y < N; y++)
+    for (let x = 0; x < N; x++) {
+      const t = old.tiles?.[y]?.[x]
+      if (!t) continue
+      s.map[y * N + x].r = !!t.road
+      s.map[y * N + x].tree = !!t.tree
     }
-    s.buildings.push(b)
-    tiles[sb.y][sb.x].b = b.uid
+  for (const b of old.buildings ?? []) {
+    const k = rename[b.def] ?? b.def
+    if (!DEFS[k]) continue
+    s.map[b.y * N + b.x].b = { k, builtAt: b.readyAt ?? 0, start: b.lastCollect ?? Date.now(), nome: b.name || undefined }
   }
-  const rnd = seeded(cfg.tree.seed)
-  let placed = 0
-  for (let tries = 0; placed < cfg.tree.count && tries < 2000; tries++) {
-    const x = 1 + Math.floor(rnd() * (N - 2))
-    const y = 1 + Math.floor(rnd() * (N - 2))
-    const tile = tiles[y][x]
-    const nearCenter = Math.abs(x - 7) <= 2 && Math.abs(y - 7) <= 2
-    if (tile.road || tile.b || tile.tree || nearCenter) continue
-    tile.tree = true
-    placed++
-  }
+  s.ouro = old.gold ?? s.ouro
+  s.grana = old.grana ?? s.grana
+  s.energia = old.energy ?? s.energia
+  s.nivel = old.level ?? s.nivel
+  s.xp = old.xp ?? 0
+  s.cidade = old.cityName || s.cidade
+  s.lastSeen = old.savedAt ?? Date.now()
   return s
 }
 
-// ---------- Save ----------
-
-export function save(s: GameState) {
-  s.savedAt = now()
-  try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(s))
-  } catch {
-    /* sem armazenamento: o jogo segue sem salvar */
-  }
+export const game = {
+  S: null as unknown as State,
+  firstTime: false,
+  visiting: null as Visit | null,
+  mode: { type: 'none' } as Mode,
+  hover: null as [number, number] | null,
+  nextEv: Date.now() + rand(6000, 12000),
 }
 
-export function load(): GameState {
+export function load() {
+  let s: any = null
   try {
     const raw = localStorage.getItem(SAVE_KEY)
-    if (raw) {
-      const s = JSON.parse(raw) as GameState
-      if (s.version === 1 && s.tiles?.length === N) return s
-    }
+    s = raw ? JSON.parse(raw) : null
   } catch {
-    /* save quebrado: começa de novo */
+    s = null
   }
-  return newGame()
+  if (s && s.version === 1) s = migrateV1(s)
+  game.firstTime = !s || s.version !== 3
+  game.S = game.firstTime ? newState() : (s as State)
+  const S = game.S
+  S.pending ??= []
+  S.map.forEach((t) => {
+    if (t.b && precisaNome(t.b.k) && !t.b.nome) t.b.nome = sugerirNome(t.b.k)
+  })
 }
 
-export function resetGame(): GameState {
+export function save() {
+  game.S.lastSeen = Date.now()
   try {
-    localStorage.removeItem(SAVE_KEY)
+    localStorage.setItem(SAVE_KEY, JSON.stringify(game.S))
   } catch {
-    /* ignora */
+    /* sem armazenamento: segue sem salvar */
   }
-  return newGame()
 }
 
-// ---------- Energia, XP, população ----------
+export function reset() {
+  game.S = newState()
+  game.firstTime = false
+  game.visiting = null
+  game.mode = { type: 'none' }
+  save()
+}
 
-export function syncEnergy(s: GameState, t = now()) {
-  const max = energyMax(s.level)
-  if (s.energy >= max) {
-    s.energyAt = t
+export const curMap = () => (game.visiting ? game.visiting.map : game.S.map)
+export const cidadeAtual = () => (game.visiting ? game.visiting.bot.cidade ?? '' : game.S.cidade)
+export function popNow() {
+  let p = 0
+  game.S.map.forEach((t) => { if (t.b) p += DEFS[t.b.k].pop ?? 0 })
+  return p
+}
+export function popMax() {
+  let p = 0
+  game.S.map.forEach((t) => { if (t.b) p += DEFS[t.b.k].popMax ?? 0 })
+  return p
+}
+export const track = (k: string) => { game.S.cnt[k] = (game.S.cnt[k] || 0) + 1 }
+
+// ---------- energia e XP ----------
+
+export function updEnergy(now = Date.now()) {
+  const S = game.S
+  const max = eMax(S.nivel)
+  while (S.energia < max && now - S.eLast >= regenMs) {
+    S.energia++
+    S.eLast += regenMs
+  }
+  if (S.energia >= max) S.eLast = now
+}
+export const nextEnergyIn = () => Math.max(0, Math.ceil((regenMs - (Date.now() - game.S.eLast)) / 1000))
+
+export function addXP(n: number) {
+  const S = game.S
+  S.xp += n
+  while (S.xp >= need(S.nivel)) {
+    S.xp -= need(S.nivel)
+    S.nivel++
+    S.grana += cfg.grana_por_nivel
+    S.energia = eMax(S.nivel)
+    fx.toast(`Nível ${S.nivel}! 🎉 +${cfg.grana_por_nivel} Grana e energia cheia`, { big: true })
+  }
+}
+
+// ---------- ações na própria cidade ----------
+
+export const canPlace = (x: number, y: number) => {
+  const t = game.S.map[y * N + x]
+  return !!t && !t.r && !t.b
+}
+
+export function setMode(m: Mode) {
+  game.mode = m
+  game.hover = null
+}
+
+export function tryPlace(x: number, y: number) {
+  const S = game.S
+  if (game.mode.type !== 'place') return
+  const k = game.mode.k
+  const d = DEFS[k]
+  if (!canPlace(x, y)) return fx.toast('Esse espaço tá ocupado')
+  const moeda = d.moeda === 'grana' ? 'grana' : 'ouro'
+  const preco = d.preco ?? 0
+  if (S[moeda] < preco) return fx.toast(`Falta ${moeda === 'grana' ? 'Grana' : 'Ouro'} pra isso`)
+  if (d.pop && popNow() + d.pop > popMax()) return fx.toast('População no máximo! Constrói uma Escola ou Posto de Saúde 🏫')
+  const now = Date.now()
+  const tile = S.map[y * N + x]
+  tile.tree = false
+  S[moeda] -= preco
+  const ready = now + buildMs(k)
+  const b: B = { k, builtAt: ready, start: ready }
+  tile.b = b
+  track('construir:' + k)
+  track('construir:' + d.cat)
+  fx.float(x, y, '-' + preco, moeda === 'grana' ? '#a8ff8f' : '#ffb3a7', 40)
+  addXP(d.xp || 5)
+  setMode({ type: 'none' })
+  if (precisaNome(k)) {
+    b.nome = sugerirNome(k)
+    fx.askName({
+      titulo: 'Como vai se chamar?', atual: b.nome, sortear: () => sugerirNome(k),
+      ok: (v) => { b.nome = v; save(); fx.toast(`${v} vem aí! 🚧`) },
+    })
+  }
+  save()
+}
+
+export function toggleRoad(x: number, y: number) {
+  const S = game.S
+  const t = S.map[y * N + x]
+  if (t.b) return fx.toast('Tem uma construção aqui')
+  if (t.r) {
+    t.r = false
+    fx.float(x, y, 'removida', '#fff', 30)
+  } else {
+    if (S.ouro < cfg.rua_custo) return fx.toast('Falta Ouro')
+    S.ouro -= cfg.rua_custo
+    t.r = true
+    t.tree = false
+    track('rua')
+    fx.float(x, y, '-' + cfg.rua_custo, '#ffb3a7', 30)
+  }
+  save()
+}
+
+/** Toque num tile da própria cidade, sem modo ativo. */
+export function tapCity(x: number, y: number) {
+  const S = game.S
+  const now = Date.now()
+  const tile = S.map[y * N + x]
+  if (tile.b) {
+    const b = tile.b
+    const d = DEFS[b.k]
+    if (now < b.builtAt) return fx.toast(`${d.nome} em construção: falta ${Math.ceil((b.builtAt - now) / 1000)}s 🚧`)
+    if (d.renda) {
+      const left = tempoMs(b.k) - (now - b.start)
+      if (left <= 0) {
+        if (S.energia < 1) return fx.toast('Sem energia! ⚡ Espera recarregar ou aceita presente de vizinho')
+        S.energia--
+        S.ouro += d.renda
+        b.start = now
+        track('coletar')
+        track('coletar:' + d.cat)
+        const xp = Math.ceil(d.renda / cfg.coleta_xp_divisor)
+        fx.float(x, y, '+' + d.renda, '#ffe36b')
+        fx.float(x, y, `+${xp} XP`, '#8fd6ff', 90)
+        addXP(xp)
+        save()
+      } else fx.openBuilding(b)
+    } else if (d.cat === 'decoracao') fx.toast(d.nome)
+    else fx.openBuilding(b)
     return
   }
-  const gained = Math.floor((t - s.energyAt) / regenMs)
-  if (gained > 0) {
-    s.energy = Math.min(max, s.energy + gained)
-    s.energyAt = s.energy >= max ? t : s.energyAt + gained * regenMs
+  if (tile.tree) {
+    if (S.energia < 1) return fx.toast('Sem energia pra cortar a árvore ⚡')
+    S.energia--
+    tile.tree = false
+    S.ouro += cfg.arvore.ouro
+    track('cortar')
+    addXP(cfg.arvore.xp)
+    fx.float(x, y, '+' + cfg.arvore.ouro, '#ffe36b', 40)
+    fx.float(x, y, `+${cfg.arvore.xp} XP`, '#8fd6ff', 70)
+    save()
   }
 }
 
-/** Segundos até a próxima energia, ou 0 se está cheia. */
-export function nextEnergyIn(s: GameState, t = now()) {
-  if (s.energy >= energyMax(s.level)) return 0
-  return Math.max(0, Math.ceil((s.energyAt + regenMs - t) / 1000))
+// ---------- vizinhos bots ----------
+
+const V = cfg.vizinhos
+function weighted(obj: Record<string, number>) {
+  const ent = Object.entries(obj)
+  let r = Math.random() * ent.reduce((a, [, w]) => a + w, 0)
+  for (const [k, w] of ent) if ((r -= w) <= 0) return k
+  return ent[0][0]
+}
+const lojasProntas = () =>
+  game.S.map.filter((t) => t.b && t.b.nome && DEFS[t.b.k].cat === 'comercio' && Date.now() >= t.b.builtAt).map((t) => t.b!.nome!)
+
+export function genEvent(t = Date.now()): Ev {
+  const S = game.S
+  let r = Math.random() * BOTS.reduce((a, b) => a + (b.peso ?? 1), 0)
+  let bot = BOTS[0]
+  for (const b of BOTS) if ((r -= b.peso ?? 1) <= 0) { bot = b; break }
+  const tipo = weighted(PERFIS[bot.perfil ?? 'normal'].pesos) as EvTipo
+  const n = bot.nome
+  const ev: Ev = { id: t + Math.random(), bot: bot.id, tipo, texto: '', t, done: false }
+  if (tipo === 'presente') {
+    const p = pick(MSG.presente) as { texto: string; energia?: number }
+    ev.texto = fill(p.texto, { n })
+    ev.give = p.energia ? { energia: p.energia } : { ouro: Math.round(rand(V.presente_ouro[0], V.presente_ouro[1])) }
+  } else if (tipo === 'nivel') {
+    S.botLv[bot.id] = (S.botLv[bot.id] || bot.nivel || 1) + 1
+    ev.texto = fill(MSG.nivel, { n, nivel: S.botLv[bot.id] })
+  } else ev.texto = fill(pick(MSG[tipo] as string[]), { n })
+  const lojas = lojasProntas()
+  if (lojas.length && tipo === 'fala' && Math.random() < MSG.fala_loja_chance)
+    ev.texto = fill(pick(MSG.fala_loja), { n, loja: pick(lojas), cidade: S.cidade })
+  if (lojas.length && tipo === 'visita' && Math.random() < MSG.visita_loja_chance)
+    ev.texto = fill(MSG.visita_loja, { n, loja: pick(lojas), cidade: S.cidade })
+  return ev
 }
 
-function spendEnergy(s: GameState, t: number): boolean {
-  syncEnergy(s, t)
-  if (s.energy < 1) return false
-  s.energy -= 1
-  return true
-}
-
-/** Soma XP e devolve o novo nível, se subiu. */
-function addXp(s: GameState, amount: number, t: number): number | undefined {
-  s.xp += amount
-  let up: number | undefined
-  while (s.xp >= xpNeed(s.level)) {
-    s.xp -= xpNeed(s.level)
-    s.level += 1
-    s.grana += cfg.grana_per_level
-    up = s.level
+export function pushEvent(ev: Ev, silent = false) {
+  const S = game.S
+  if (ev.tipo === 'visita') {
+    S.ouro += V.visita_ouro
+    ev.done = true
   }
-  if (up) {
-    s.energy = energyMax(s.level)
-    s.energyAt = t
+  if (ev.tipo === 'fala') ev.done = true
+  S.feed.unshift(ev)
+  S.feed = S.feed.slice(0, V.feed_max)
+  S.unread++
+  if (!silent) fx.toast(ev.texto, { bot: botById(ev.bot) })
+  save()
+}
+
+function schedule(bot: Bot, tipo: EvTipo, texto: string, delay: number, extra: Partial<Ev> = {}) {
+  game.S.pending.push({ at: Date.now() + delay, ev: { id: Date.now() + Math.random(), bot: bot.id, tipo, texto, t: 0, done: tipo === 'fala', ...extra } })
+}
+
+const isNight = (d: Date) => d.getHours() >= V.madrugada[0] && d.getHours() < V.madrugada[1]
+
+export function tickEvents() {
+  const now = Date.now()
+  const S = game.S
+  const due = S.pending.filter((p) => now >= p.at)
+  if (due.length) {
+    S.pending = S.pending.filter((p) => now < p.at)
+    due.forEach((p) => { p.ev.t = now; pushEvent(p.ev) })
   }
-  return up
-}
-
-export function population(s: GameState) {
-  let pop = 0
-  let max = 0
-  for (const b of s.buildings) {
-    const d = defs[b.def]
-    pop += d.pop ?? 0
-    max += d.popMax ?? 0
+  if (now >= game.nextEv && !game.visiting) {
+    pushEvent(genEvent())
+    game.nextEv = now + rand(V.evento_segundos[0], V.evento_segundos[1]) * 1000 * (isNight(new Date()) ? V.madrugada_fator : 1)
   }
-  return { pop, max }
 }
 
-export const unlockedAt = (level: number) =>
-  Object.values(defs).filter((d) => d.category !== 'inicial' && (d.level ?? 1) === level)
-
-// ---------- Construções ----------
-
-export const isBuilding = (b: Building, t = now()) => t < b.readyAt
-export const isReady = (b: Building, t = now()) => {
-  const d = defs[b.def]
-  return !!d.income && t >= b.readyAt && t - b.lastCollect >= cycleMs(d)
-}
-/** 0 a 1: quanto falta para a próxima moeda. */
-export const cycleProgress = (b: Building, t = now()) => {
-  const d = defs[b.def]
-  if (!d.income) return 0
-  return Math.min(1, Math.max(0, (t - b.lastCollect) / cycleMs(d)))
-}
-export const buildProgress = (b: Building, t = now()) => {
-  const total = buildMs(defs[b.def])
-  return total <= 0 ? 1 : Math.min(1, 1 - (b.readyAt - t) / total)
-}
-
-export function priceText(d: BuildingDef) {
-  if (d.price?.grana) return `${d.price.grana} Grana`
-  return `${d.price?.gold ?? 0} ouro`
-}
-
-export function canAfford(s: GameState, d: BuildingDef) {
-  return s.gold >= (d.price?.gold ?? 0) && s.grana >= (d.price?.grana ?? 0)
-}
-
-/** Motivo de não poder construir aqui, ou null se pode. */
-export function placeProblem(s: GameState, d: BuildingDef, x: number, y: number): string | null {
-  if (!inBounds(x, y) || isBorder(x, y)) return 'Fora do terreno'
-  const tile = s.tiles[y][x]
-  if (tile.road) return 'Tem rua aqui'
-  if (tile.tree) return 'Corte a árvore primeiro'
-  if (tile.b) return 'Já tem construção aqui'
-  if ((d.level ?? 1) > s.level) return `Libera no nível ${d.level}`
-  if (!canAfford(s, d)) return d.price?.grana ? 'Falta Grana' : 'Falta ouro'
-  if (d.pop) {
-    const { pop, max } = population(s)
-    if (pop + d.pop > max) return 'Sem espaço pra moradores: construa Escola ou Posto'
+/** "Enquanto você estava fora": eventos que os bots teriam gerado, com teto e sossego de madrugada. */
+export function simulateAway(): Ev[] {
+  const S = game.S
+  const now = Date.now()
+  const out: Ev[] = []
+  if (game.firstTime) {
+    for (let i = 0; i < V.boas_vindas_eventos; i++) out.push(genEvent(now - rand(5, 90) * 60000))
+  } else {
+    const away = now - (S.lastSeen || now)
+    const avg = ((V.evento_segundos[0] + V.evento_segundos[1]) / 2) * 1000
+    const n = Math.min(V.fora_max_eventos, Math.floor(away / avg))
+    for (let i = 0; i < n; i++) {
+      const t = S.lastSeen + Math.random() * away
+      if (isNight(new Date(t)) && Math.random() < 0.75) continue
+      out.push(genEvent(t))
+    }
   }
-  return null
+  // pendências que venceram com o jogo fechado
+  const due = S.pending.filter((p) => now >= p.at)
+  S.pending = S.pending.filter((p) => now < p.at)
+  due.forEach((p) => { p.ev.t = p.at; out.push(p.ev) })
+  out.sort((a, b) => a.t - b.t).forEach((ev) => pushEvent(ev, true))
+  return out.reverse()
 }
 
-export function place(s: GameState, d: BuildingDef, x: number, y: number, t = now()): ActionResult {
-  const problem = placeProblem(s, d, x, y)
-  if (problem) return { ok: false, msg: problem }
-  s.gold -= d.price?.gold ?? 0
-  s.grana -= d.price?.grana ?? 0
-  const readyAt = t + buildMs(d)
-  const b: Building = {
-    uid: s.nextUid++, def: d.id, x, y,
-    name: d.named === 'required' ? suggestName(d) : '',
-    readyAt, lastCollect: readyAt,
+export function actOnEvent(id: number) {
+  const S = game.S
+  const ev = S.feed.find((e) => e.id === id)
+  if (!ev || ev.done) return
+  ev.done = true
+  const b = botById(ev.bot)
+  if (ev.tipo === 'presente' && ev.give) {
+    if (ev.give.energia) {
+      S.energia = Math.min(eMax(S.nivel) + cfg.energia.presente_teto_extra, S.energia + ev.give.energia)
+      fx.toast(`+${ev.give.energia} energia ⚡`)
+    } else {
+      S.ouro += ev.give.ouro ?? 0
+      fx.toast(`+${ev.give.ouro} de ouro 🪙`)
+    }
+  } else if (ev.tipo === 'pedido') {
+    addXP(V.ajudar_pedido_xp)
+    fx.toast(`Você ajudou ${b.nome} (+${V.ajudar_pedido_xp} XP)`)
+    schedule(b, 'fala', fill(MSG.agradece_ajuda, { n: b.nome }), rand(V.agradece_segundos[0], V.agradece_segundos[1]) * 1000)
+  } else if (ev.tipo === 'nivel') addXP(V.curtir_xp)
+  save()
+}
+
+const today = () => new Date().toDateString()
+export const giftSentToday = (id: string) => game.S.sent[id] === today()
+export function sendGift(b: Bot) {
+  const S = game.S
+  S.sent[b.id] = today()
+  track('presente')
+  fx.toast(`Presente enviado pra ${b.nome}! 🎁`, { bot: b })
+  schedule(b, 'fala', fill(pick(MSG.agradece_presente), { n: b.nome }), rand(V.agradece_segundos[0], V.agradece_segundos[1]) * 1000)
+  if (PERFIS[b.perfil ?? 'normal'].sempre_devolve || Math.random() < V.presente_volta_chance)
+    schedule(b, 'presente', fill(MSG.presente_volta, { n: b.nome }), rand(V.presente_volta_segundos[0], V.presente_volta_segundos[1]) * 1000, {
+      give: { ouro: Math.round(rand(V.presente_volta_ouro[0], V.presente_volta_ouro[1])) },
+    })
+  save()
+}
+
+// ---------- visitar cidade de bot ----------
+
+function genBotCity(b: Bot): Tile[] {
+  const R = rng(hash(b.id))
+  const lv = game.S.botLv[b.id]
+  const m = blankMap()
+  const at = (x: number, y: number) => m[y * N + x]
+  const rows = [7]
+  const cols = [7]
+  if (lv >= 8) rows.push(11)
+  if (lv >= 12) cols.push(11)
+  if (lv >= 18) rows.push(3)
+  if (lv >= 20) cols.push(3)
+  rows.forEach((y) => { for (let x = 1; x <= 14; x++) at(x, y).r = true })
+  cols.forEach((x) => { for (let y = 1; y <= 14; y++) at(x, y).r = true })
+  at(8, 8).b = { k: 'prefeitura', builtAt: 0, start: 0 }
+  const near: [number, number][] = []
+  for (let y = 0; y < N; y++)
+    for (let x = 0; x < N; x++) {
+      const t = at(x, y)
+      if (t.r || t.b) continue
+      if (DIRS.some(([dx, dy]) => isRoad(m, x + dx, y + dy))) near.push([x, y])
+    }
+  for (let i = near.length - 1; i > 0; i--) {
+    const j = Math.floor(R() * (i + 1))
+    ;[near[i], near[j]] = [near[j], near[i]]
   }
-  s.buildings.push(b)
-  s.tiles[y][x].b = b.uid
-  const xp = d.xp ?? cfg.xp.build
-  const levelUp = addXp(s, xp, t)
-  const floats = [{ text: d.price?.grana ? `-${d.price.grana} Grana` : `-${d.price?.gold ?? 0}`, color: '#ffd84d' }, { text: `+${xp} XP`, color: '#7fd3ff' }]
-  return { ok: true, uid: b.uid, floats, levelUp }
-}
-
-export function collect(s: GameState, b: Building, t = now()): ActionResult {
-  if (!isReady(b, t)) return { ok: false }
-  if (!spendEnergy(s, t)) return { ok: false, msg: 'Sem energia! Ela volta sozinha com o tempo.' }
-  const d = defs[b.def]
-  s.gold += d.income ?? 0
-  b.lastCollect = t
-  const levelUp = addXp(s, cfg.xp.collect, t)
-  return { ok: true, levelUp, floats: [{ text: `+${d.income}`, color: '#ffd84d' }, { text: `+${cfg.xp.collect} XP`, color: '#7fd3ff' }] }
-}
-
-export function cutTree(s: GameState, x: number, y: number, t = now()): ActionResult {
-  const tile = s.tiles[y][x]
-  if (!tile.tree) return { ok: false }
-  if (!spendEnergy(s, t)) return { ok: false, msg: 'Sem energia pra cortar a árvore.' }
-  tile.tree = false
-  s.gold += cfg.tree.gold
-  const levelUp = addXp(s, cfg.tree.xp, t)
-  return { ok: true, levelUp, floats: [{ text: `+${cfg.tree.gold}`, color: '#ffd84d' }, { text: `+${cfg.tree.xp} XP`, color: '#7fd3ff' }] }
-}
-
-export function toggleRoad(s: GameState, x: number, y: number, t = now()): ActionResult {
-  if (!inBounds(x, y) || isBorder(x, y)) return { ok: false, msg: 'Fora do terreno' }
-  const tile = s.tiles[y][x]
-  if (tile.road) {
-    tile.road = false
-    return { ok: true }
+  const pool = ['casa', 'casa', 'chale', 'lanchonete']
+  if (lv >= 3) pool.push('sobrado', 'padaria', 'sobrado')
+  if (lv >= 6) pool.push('mercado', 'escola')
+  if (lv >= 10) pool.push('predio', 'sorveteria', 'predio')
+  if (lv >= 14) pool.push('posto', 'predio')
+  const count = Math.min(near.length, 6 + Math.round(lv * 1.8))
+  const placed: B[] = []
+  for (let i = 0; i < count; i++) {
+    const [x, y] = near[i]
+    const k = R() < 0.12 ? pick(['praca', 'flores'], R) : pick(pool, R)
+    const bb: B = { k, builtAt: 0, start: 0 }
+    if (precisaNome(k)) bb.nome = sugerirNome(k, b.nome, R)
+    at(x, y).b = bb
+    if (DEFS[k].renda) placed.push(bb)
   }
-  if (tile.b) return { ok: false, msg: 'Já tem construção aqui' }
-  if (tile.tree) return { ok: false, msg: 'Corte a árvore primeiro' }
-  if (s.gold < cfg.road_cost) return { ok: false, msg: 'Falta ouro' }
-  s.gold -= cfg.road_cost
-  tile.road = true
-  const levelUp = addXp(s, cfg.xp.road, t)
-  return { ok: true, levelUp, floats: [{ text: `-${cfg.road_cost}`, color: '#ffd84d' }] }
+  for (let i = placed.length - 1; i > 0; i--) {
+    const j = Math.floor(R() * (i + 1))
+    ;[placed[i], placed[j]] = [placed[j], placed[i]]
+  }
+  placed.slice(0, V.ajudas_por_visita).forEach((bb) => (bb.help = true))
+  m.forEach((t) => { if (!t.r && !t.b && R() < 0.3) t.tree = true })
+  return m
 }
 
-export function rename(b: Building, raw: string) {
-  b.name = cleanName(raw)
+export function startVisit(b: Bot) {
+  setMode({ type: 'none' })
+  game.visiting = { bot: b, map: genBotCity(b), helps: 0 }
+  fx.visitChanged()
+}
+export function endVisit() {
+  game.visiting = null
+  fx.visitChanged()
+}
+export function tapVisit(x: number, y: number) {
+  const v = game.visiting!
+  const tile = v.map[y * N + x]
+  if (tile.b && tile.b.help) {
+    tile.b.help = false
+    v.helps++
+    track('ajudar')
+    game.S.ouro += V.ajuda_ouro
+    addXP(V.ajuda_xp)
+    fx.float(x, y, '+' + V.ajuda_ouro, '#ffe36b')
+    fx.float(x, y, `+${V.ajuda_xp} XP`, '#8fd6ff', 90)
+    if (v.helps === V.ajudas_por_visita) {
+      fx.toast(`Você ajudou bastante! ${v.bot.nome} vai adorar ❤️`, { bot: v.bot })
+      schedule(v.bot, 'fala', fill(MSG.agradece_visita, { n: v.bot.nome }), rand(8000, 16000))
+    }
+    save()
+  } else if (tile.b && v.helps >= V.ajudas_por_visita) fx.toast('Você já ajudou o máximo hoje nessa cidade')
+  else if (tile.b) fx.toast(nomeDe(tile.b, cidadeAtual()) || DEFS[tile.b.k].nome)
+}
+
+// ---------- missões ----------
+
+export function ativas(): Missao[] {
+  const S = game.S
+  const a = MISSOES.filter((m) => !S.claimed.includes(m.id)).slice(0, ATIVAS_MAX)
+  a.forEach((m) => { if (!S.mbase[m.id]) S.mbase[m.id] = { ...S.cnt } })
+  return a
+}
+export function prog(m: Missao, t: Tarefa) {
+  const S = game.S
+  if (t.stat === 'pop') return Math.min(t.n, popNow())
+  return Math.min(t.n, (S.cnt[t.k!] || 0) - ((S.mbase[m.id] || {})[t.k!] || 0))
+}
+export const completa = (m: Missao) => m.tarefas.every((t) => prog(m, t) >= t.n)
+export const premioTxt = (p: Missao['premio']) =>
+  [p.ouro ? `$ ${p.ouro}` : '', p.grana ? `G ${p.grana}` : '', p.xp ? `${p.xp} XP` : ''].filter(Boolean)
+
+/** Avisa quando uma missão fica completa (uma vez só). */
+export function checkMissions() {
+  const S = game.S
+  for (const m of ativas())
+    if (completa(m) && !S.mnotif.includes(m.id)) {
+      S.mnotif.push(m.id)
+      fx.toast(`Missão completa: ${m.titulo}! Toque no ícone pra resgatar`, { bot: ASSESSOR })
+    }
+}
+
+export function claim(id: string) {
+  const S = game.S
+  const m = MISSOES.find((x) => x.id === id)
+  if (!m || !completa(m) || S.claimed.includes(id)) return
+  S.claimed.push(id)
+  const p = m.premio
+  if (p.ouro) S.ouro += p.ouro
+  if (p.grana) S.grana += p.grana
+  fx.toast(`Missão cumprida! +${premioTxt(p).join(' +')}`, { big: true })
+  if (p.xp) addXP(p.xp)
+  const nova = ativas().find((x) => !S.mseen.includes(x.id))
+  if (nova) setTimeout(() => fx.toast(`Nova missão: ${nova.titulo} ${nova.ic}`, { bot: ASSESSOR }), 2700)
+  save()
 }

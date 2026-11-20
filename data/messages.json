@@ -1,0 +1,37 @@
+{
+  "presente": [
+    { "texto": "{n} te mandou um presente! 🎁" },
+    { "texto": "{n} lembrou de você e mandou umas moedinhas" },
+    { "texto": "{n} te mandou energia ⚡", "energia": 1 }
+  ],
+  "pedido": [
+    "{n} precisa de 3 tijolos pra terminar a padaria",
+    "{n} tá pedindo ajuda: faltam 2 telhas pro sobrado!",
+    "{n}: alguém me ajuda com tinta? kkkk",
+    "{n} precisa de ajuda pra abrir a escola"
+  ],
+  "fala": [
+    "{n}: bom dia vizinhança!! ☀️",
+    "{n}: minha praça ficou linda, passa lá depois",
+    "{n}: aff acabou minha energia de novo 😩",
+    "{n}: alguém mais tá viciado nisso? kkkk",
+    "{n}: finalmente terminei o mercadinho!!",
+    "{n}: boa noite gente, amanhã tem mais",
+    "{n}: quem quer ser meu vizinho? manda presente que eu devolvo"
+  ],
+  "visita": ["{n} visitou sua cidade e coletou um aluguel pra você (+15)"],
+  "visita_loja": "{n} visitou {cidade}, passou na {loja} e coletou um aluguel pra você (+15)",
+  "fala_loja": [
+    "{n}: comi na {loja} ontem, top!",
+    "{n}: passei na {loja} e já virei cliente kkkk",
+    "{n}: alguém mais acha a {loja} a melhor de {cidade}?",
+    "{n}: a fila da {loja} tava enorme hoje"
+  ],
+  "fala_loja_chance": 0.45,
+  "visita_loja_chance": 0.6,
+  "nivel": "{n} chegou ao nível {nivel}! 🎉",
+  "agradece_ajuda": "{n}: valeu demais pela ajuda!! ❤️",
+  "agradece_presente": ["{n}: aaah obrigada pelo presente!!", "{n}: valeu pelo presente vizinha 😄", "{n}: que fofa, obrigado!"],
+  "presente_volta": "{n} retribuiu seu presente! 🎁",
+  "agradece_visita": "{n}: obrigada pela visita!! vi que você ajudou aqui 🥰"
+}

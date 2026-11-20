@@ -1,557 +1,560 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { CATEGORIES, cfg, defList, defs, NAME_MAX } from './game/data'
-import * as G from './game/state'
-import { drawPreview, drawWorld, iso, mapBounds, toTile, topOf, type Cam } from './game/render'
-import type { ActionResult, BuildingDef, Float } from './game/types'
-import { Bolt, Cash, Coin, People, Star } from './icons'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { ASSESSOR, BOTS, botById, CATS, cfg, DEFS, MISSOES, NAME_MAX, PERFIS, type Bot } from './game/data'
+import * as S from './game/state'
+import { game, type AskName, type B, type Ev } from './game/state'
+import { addFloat, avatarSVG, cam, centerCam, pickObj, pickTile, preview, render, spawnCars, updCars } from './game/render'
+import { ago, fmt } from './game/util'
 
-type Dialog =
-  | { kind: 'name'; uid: number; value: string; isNew: boolean }
-  | { kind: 'city'; value: string }
+type Info =
+  | { kind: 'building'; b: B }
+  | { kind: 'name'; o: AskName }
+  | { kind: 'quest'; id: string }
+  | { kind: 'options' }
   | { kind: 'reset' }
-  | null
+  | { kind: 'welcome'; evs: Ev[]; first: boolean }
+interface Toast { id: number; text: string; big?: boolean; bot?: Bot }
 
-const fmtTime = (sec: number) => {
-  const m = Math.floor(sec / 60)
-  const s = sec % 60
-  return m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `${s}s`
+S.load()
+
+const Avatar = ({ b, lv, size }: { b: Bot; lv?: number; size?: number }) => (
+  <div className="av" style={size ? { width: size, height: size, margin: 0 } : undefined}>
+    <span dangerouslySetInnerHTML={{ __html: avatarSVG(b) }} />
+    {lv !== undefined && <span className="lv">{lv}</span>}
+  </div>
+)
+
+function Modal({ title, onClose, children }: { title: ReactNode; onClose: () => void; children: ReactNode }) {
+  return (
+    <div className="modal open" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="panel">
+        <h2>
+          <span>{title}</span>
+          <button className="x" onClick={onClose} aria-label="Fechar">✕</button>
+        </h2>
+        {children}
+      </div>
+    </div>
+  )
 }
 
 export default function App() {
-  const gs = useRef(G.load())
-  const cam = useRef<Cam>({ x: 0, y: 0, zoom: 0.7 })
-  const floats = useRef<Float[]>([])
-  const hover = useRef<{ x: number; y: number } | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-
   const [, setTick] = useState(0)
-  const rerender = useCallback(() => setTick((v) => v + 1), [])
-  const [placing, setPlacing] = useState<string | null>(null)
-  const [roadMode, setRoadMode] = useState(false)
-  const [shopOpen, setShopOpen] = useState(false)
-  const [popup, setPopup] = useState<number | null>(null)
-  const [dialog, setDialog] = useState<Dialog>(null)
-  const [toast, setToast] = useState<{ text: string; id: number } | null>(null)
-  const mode = useRef({ placing, roadMode })
-  mode.current = { placing, roadMode }
+  const refresh = useCallback(() => setTick((v) => v + 1), [])
+  const [toasts, setToasts] = useState<Toast[]>([])
+  const [shop, setShop] = useState(false)
+  const [shopCat, setShopCat] = useState('casas')
+  const [feed, setFeed] = useState(false)
+  const [nb, setNb] = useState<string | null>(null)
+  const [info, setInfo] = useState<Info | null>(null)
+  const size = useRef({ W: 0, H: 0 })
 
-  const commit = useCallback(() => {
-    G.save(gs.current)
-    rerender()
-  }, [rerender])
-
-  const say = useCallback((text: string) => {
-    const id = Date.now()
-    setToast({ text, id })
-    setTimeout(() => setToast((t) => (t?.id === id ? null : t)), 2600)
+  const toast = useCallback((text: string, o: { big?: boolean; bot?: Bot } = {}) => {
+    const id = Date.now() + Math.random()
+    setToasts((l) => [...l, { id, text, ...o }].slice(-3))
+    setTimeout(() => setToasts((l) => l.filter((t) => t.id !== id)), o.big ? 2600 : 2800)
   }, [])
 
-  // relógio da interface + save automático
+  // liga as ações do jogo à interface
   useEffect(() => {
-    const tick = setInterval(() => {
-      G.syncEnergy(gs.current)
-      rerender()
-    }, 1000)
-    const autosave = setInterval(() => G.save(gs.current), cfg.autosave_seconds * 1000)
-    const onHide = () => G.save(gs.current)
-    document.addEventListener('visibilitychange', onHide)
-    window.addEventListener('pagehide', onHide)
-    return () => {
-      clearInterval(tick)
-      clearInterval(autosave)
-      document.removeEventListener('visibilitychange', onHide)
-      window.removeEventListener('pagehide', onHide)
+    S.fx.toast = toast
+    S.fx.float = addFloat
+    S.fx.openBuilding = (b) => setInfo({ kind: 'building', b })
+    S.fx.askName = (o) => setInfo({ kind: 'name', o })
+    S.fx.visitChanged = () => {
+      const { W, H } = size.current
+      spawnCars(S.curMap(), game.visiting ? cfg.carros.na_visita : cfg.carros.na_cidade)
+      centerCam(W, H)
+      refresh()
     }
-  }, [rerender])
+    const evs = S.simulateAway()
+    if (game.firstTime || evs.length) setInfo({ kind: 'welcome', evs, first: game.firstTime })
+    S.save()
+  }, [toast, refresh])
 
-  const handleResult = useCallback(
-    (r: ActionResult, tx: number, ty: number, lift = 30) => {
-      if (r.msg) say(r.msg)
-      if (r.floats) {
-        const c = iso(tx, ty)
-        r.floats.forEach((f, i) =>
-          floats.current.push({ wx: c.x, wy: c.y - lift - i * 20, text: f.text, color: f.color, t0: performance.now() + i * 120 }),
-        )
-        floats.current = floats.current.filter((f) => performance.now() - f.t0 < 1500)
-      }
-      if (r.levelUp) {
-        const news = G.unlockedAt(r.levelUp).map((d) => d.name)
-        say(`Subiu pro nível ${r.levelUp}! +${cfg.grana_per_level} Grana${news.length ? ` · Liberou: ${news.join(', ')}` : ''}`)
-      }
-    },
-    [say],
-  )
-
-  // toque no mapa
-  const onTap = useCallback(
-    (tx: number, ty: number) => {
-      const s = gs.current
-      const t = G.now()
-      G.syncEnergy(s, t)
-      if (!G.inBounds(tx, ty)) return
-      const { placing: pl, roadMode: rm } = mode.current
-
-      if (rm) {
-        const r = G.toggleRoad(s, tx, ty, t)
-        handleResult(r, tx, ty, 6)
-        if (r.ok) commit()
-        return
-      }
-      if (pl) {
-        const d = defs[pl]
-        const r = G.place(s, d, tx, ty, t)
-        if (!r.ok) {
-          say(r.msg ?? 'Não dá pra construir aqui')
-          return
-        }
-        handleResult(r, tx, ty)
-        setPlacing(null)
-        hover.current = null
-        const b = r.uid ? G.byUid(s, r.uid) : undefined
-        if (b && d.named === 'required') setDialog({ kind: 'name', uid: b.uid, value: b.name, isNew: true })
-        commit()
-        return
-      }
-      const tile = s.tiles[ty][tx]
-      if (tile.b) {
-        const b = G.byUid(s, tile.b)
-        if (!b) return
-        if (G.isReady(b, t)) {
-          const r = G.collect(s, b, t)
-          handleResult(r, tx, ty, topOf(defs[b.def]))
-          if (r.ok) commit()
-          return
-        }
-        setPopup(b.uid)
-        return
-      }
-      if (tile.tree) {
-        const r = G.cutTree(s, tx, ty, t)
-        handleResult(r, tx, ty, 34)
-        if (r.ok) commit()
-      }
-    },
-    [commit, handleResult, say],
-  )
-  const tapRef = useRef(onTap)
-  tapRef.current = onTap
-
-  // canvas: desenho, câmera e gestos
+  // canvas: laço do jogo e gestos
   useEffect(() => {
-    const canvas = canvasRef.current!
-    const ctx = canvas.getContext('2d')!
-    let W = 0
-    let H = 0
-    let first = true
-    const bounds = mapBounds()
-
-    const keepInside = () => {
-      const c = cam.current
-      c.x = Math.min(bounds.right, Math.max(bounds.left, c.x))
-      c.y = Math.min(bounds.bottom, Math.max(bounds.top, c.y))
-    }
+    const cv = canvasRef.current!
+    const ctx = cv.getContext('2d')!
+    let DPR = 1
     const resize = () => {
-      const dpr = window.devicePixelRatio || 1
-      W = canvas.clientWidth
-      H = canvas.clientHeight
-      canvas.width = Math.round(W * dpr)
-      canvas.height = Math.round(H * dpr)
-      if (first) {
-        first = false
-        const p = iso(7.5, 7.5)
-        cam.current = { x: p.x, y: p.y - 20, zoom: Math.min(0.9, Math.max(0.45, W / (cfg.tile_w * 8))) }
-      }
+      DPR = Math.min(2, window.devicePixelRatio || 1)
+      const W = window.innerWidth
+      const H = window.innerHeight
+      size.current = { W, H }
+      cv.width = W * DPR
+      cv.height = H * DPR
+      cv.style.width = W + 'px'
+      cv.style.height = H + 'px'
     }
-    const ro = new ResizeObserver(resize)
-    ro.observe(canvas)
     resize()
+    centerCam(size.current.W, size.current.H)
+    spawnCars(game.S.map, cfg.carros.na_cidade)
+    window.addEventListener('resize', resize)
 
     let raf = 0
-    const frame = () => {
-      const dpr = window.devicePixelRatio || 1
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      const { placing: pl, roadMode: rm } = mode.current
-      const hv = hover.current
-      let ghost = null
-      if (hv && (pl || rm)) {
-        const ok = pl ? !G.placeProblem(gs.current, defs[pl], hv.x, hv.y) : G.inBounds(hv.x, hv.y) && !G.isBorder(hv.x, hv.y)
-        ghost = { def: pl ?? 'road', x: hv.x, y: hv.y, ok }
+    let last = performance.now()
+    let hudT = 0
+    const frame = (t: number) => {
+      const dt = Math.min(0.05, (t - last) / 1000)
+      last = t
+      S.updEnergy()
+      updCars(dt)
+      S.tickEvents()
+      render(ctx, size.current.W, size.current.H, DPR, t)
+      if (t - hudT > 400) {
+        hudT = t
+        S.checkMissions()
+        refresh()
       }
-      // os floats usam o relógio do performance; o resto usa Date.now()
-      const pnow = performance.now()
-      const fl = floats.current.map((f) => ({ ...f, t0: Date.now() - (pnow - f.t0) }))
-      drawWorld(ctx, W, H, cam.current, gs.current, { ghost, roadMode: rm, floats: fl }, Date.now())
       raf = requestAnimationFrame(frame)
     }
     raf = requestAnimationFrame(frame)
+    const autosave = setInterval(S.save, cfg.autosave_seconds * 1000)
+    const onHide = () => S.save()
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', onHide)
 
-    const toWorld = (sx: number, sy: number) => {
-      const c = cam.current
-      return { x: c.x + (sx - W / 2) / c.zoom, y: c.y + (sy - H / 2) / c.zoom }
-    }
-    const tileAt = (sx: number, sy: number) => {
-      const w = toWorld(sx, sy)
-      return toTile(w.x, w.y)
-    }
-    const zoomAt = (f: number, sx: number, sy: number) => {
-      const c = cam.current
-      const before = toWorld(sx, sy)
-      c.zoom = Math.min(cfg.camera.zoom_max, Math.max(cfg.camera.zoom_min, c.zoom * f))
-      c.x = before.x - (sx - W / 2) / c.zoom
-      c.y = before.y - (sy - H / 2) / c.zoom
-      keepInside()
-    }
-    const pan = (dx: number, dy: number) => {
-      cam.current.x -= dx / cam.current.zoom
-      cam.current.y -= dy / cam.current.zoom
-      keepInside()
-    }
-
-    const pts = new Map<number, { x: number; y: number }>()
-    let start = { x: 0, y: 0 }
-    let moved = false
-    let pinch = 0
-    const local = (e: PointerEvent) => {
-      const r = canvas.getBoundingClientRect()
-      return { x: e.clientX - r.left, y: e.clientY - r.top }
-    }
-    const dist = () => {
-      const [a, b] = [...pts.values()]
-      return Math.hypot(a.x - b.x, a.y - b.y)
-    }
-    const mid = () => {
-      const [a, b] = [...pts.values()]
-      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+    const tap = (px: number, py: number) => {
+      const m = game.mode
+      if (m.type === 'place' || m.type === 'road') {
+        const t = pickTile(px, py)
+        if (!t) return
+        game.hover = t
+        if (m.type === 'place') S.tryPlace(t[0], t[1])
+        else S.toggleRoad(t[0], t[1])
+        refresh()
+        return
+      }
+      const t = pickObj(px, py) || pickTile(px, py)
+      if (!t) return
+      if (game.visiting) S.tapVisit(t[0], t[1])
+      else S.tapCity(t[0], t[1])
+      refresh()
     }
 
+    const ptrs = new Map<number, { x: number; y: number }>()
+    let drag: { sx: number; sy: number; cx: number; cy: number; moved: boolean } | null = null
+    let pinch: { d: number; z: number; mx: number; my: number; cx: number; cy: number } | null = null
     const down = (e: PointerEvent) => {
-      canvas.setPointerCapture(e.pointerId)
-      const p = local(e)
-      pts.set(e.pointerId, p)
-      if (pts.size === 1) {
-        start = p
-        moved = false
-        if (e.pointerType !== 'mouse') hover.current = tileAt(p.x, p.y)
-      } else if (pts.size === 2) {
-        moved = true
-        pinch = dist()
+      cv.setPointerCapture(e.pointerId)
+      ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (ptrs.size === 1) drag = { sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y, moved: false }
+      else if (ptrs.size === 2) {
+        const [a, b] = [...ptrs.values()]
+        pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: cam.z, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, cx: cam.x, cy: cam.y }
+        if (drag) drag.moved = true
       }
     }
     const move = (e: PointerEvent) => {
-      const p = local(e)
-      if (!pts.has(e.pointerId)) {
-        if (e.pointerType === 'mouse') hover.current = tileAt(p.x, p.y)
-        return
-      }
-      const prev = pts.get(e.pointerId)!
-      if (pts.size === 1) {
-        if (!moved && Math.hypot(p.x - start.x, p.y - start.y) > 8) moved = true
-        if (moved) pan(p.x - prev.x, p.y - prev.y)
-        pts.set(e.pointerId, p)
-      } else if (pts.size === 2) {
-        const m0 = mid()
-        pts.set(e.pointerId, p)
-        const m1 = mid()
-        const d = dist()
-        if (pinch > 0 && d > 0) zoomAt(d / pinch, m1.x, m1.y)
-        pan(m1.x - m0.x, m1.y - m0.y)
-        pinch = d
+      if (e.pointerType === 'mouse' && game.mode.type !== 'none') game.hover = pickTile(e.clientX, e.clientY)
+      if (!ptrs.has(e.pointerId)) return
+      ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (pinch && ptrs.size === 2) {
+        const [a, b] = [...ptrs.values()]
+        const z = Math.max(cfg.camera.zoom_min, Math.min(cfg.camera.zoom_max, (pinch.z * Math.hypot(a.x - b.x, a.y - b.y)) / pinch.d))
+        const wx = (pinch.mx - pinch.cx) / pinch.z
+        const wy = (pinch.my - pinch.cy) / pinch.z
+        const mx = (a.x + b.x) / 2
+        const my = (a.y + b.y) / 2
+        cam.z = z
+        cam.x = mx - wx * z
+        cam.y = my - wy * z
+      } else if (drag) {
+        const dx = e.clientX - drag.sx
+        const dy = e.clientY - drag.sy
+        if (Math.hypot(dx, dy) > 8) drag.moved = true
+        if (drag.moved) {
+          cam.x = drag.cx + dx
+          cam.y = drag.cy + dy
+        }
       }
     }
-    const up = (e: PointerEvent) => {
-      if (!pts.has(e.pointerId)) return
-      const p = local(e)
-      if (pts.size === 1 && !moved) {
-        const tl = tileAt(p.x, p.y)
-        if (e.pointerType === 'mouse') hover.current = tl
-        tapRef.current(tl.x, tl.y)
+    const end = (e: PointerEvent) => {
+      ptrs.delete(e.pointerId)
+      if (ptrs.size < 2 && pinch) {
+        pinch = null
+        if (ptrs.size === 1) {
+          const p = [...ptrs.values()][0]
+          drag = { sx: p.x, sy: p.y, cx: cam.x, cy: cam.y, moved: true }
+        }
+        return
       }
-      pts.delete(e.pointerId)
-      if (pts.size < 2) pinch = 0
-      if (pts.size === 1) {
-        start = [...pts.values()][0]
+      if (ptrs.size === 0) {
+        if (drag && !drag.moved && e.type === 'pointerup') {
+          // o click sintetizado do toque cairia no modal recém-aberto sob o dedo (ex.: "Confirmar"); engole-o
+          const swallow = (ev: Event) => { ev.stopPropagation(); ev.preventDefault() }
+          document.addEventListener('click', swallow, { capture: true, once: true })
+          setTimeout(() => document.removeEventListener('click', swallow, true), 400)
+          tap(e.clientX, e.clientY)
+        }
+        drag = null
       }
     }
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
-      const r = canvas.getBoundingClientRect()
-      const f = e.ctrlKey ? Math.exp(-e.deltaY / 100) : e.deltaY < 0 ? 1.1 : 1 / 1.1
-      zoomAt(f, e.clientX - r.left, e.clientY - r.top)
+      const z = Math.max(cfg.camera.zoom_min, Math.min(cfg.camera.zoom_max, cam.z * (e.deltaY < 0 ? 1.1 : 0.9)))
+      const wx = (e.clientX - cam.x) / cam.z
+      const wy = (e.clientY - cam.y) / cam.z
+      cam.z = z
+      cam.x = e.clientX - wx * z
+      cam.y = e.clientY - wy * z
     }
-    const leave = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse' && !pts.size) hover.current = null
-    }
-
-    canvas.addEventListener('pointerdown', down)
-    canvas.addEventListener('pointermove', move)
-    canvas.addEventListener('pointerup', up)
-    canvas.addEventListener('pointercancel', up)
-    canvas.addEventListener('pointerleave', leave)
-    canvas.addEventListener('wheel', wheel, { passive: false })
+    cv.addEventListener('pointerdown', down)
+    cv.addEventListener('pointermove', move)
+    cv.addEventListener('pointerup', end)
+    cv.addEventListener('pointercancel', end)
+    cv.addEventListener('wheel', wheel, { passive: false })
     return () => {
       cancelAnimationFrame(raf)
-      ro.disconnect()
-      canvas.removeEventListener('pointerdown', down)
-      canvas.removeEventListener('pointermove', move)
-      canvas.removeEventListener('pointerup', up)
-      canvas.removeEventListener('pointercancel', up)
-      canvas.removeEventListener('pointerleave', leave)
-      canvas.removeEventListener('wheel', wheel)
+      clearInterval(autosave)
+      window.removeEventListener('resize', resize)
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('pagehide', onHide)
+      cv.removeEventListener('pointerdown', down)
+      cv.removeEventListener('pointermove', move)
+      cv.removeEventListener('pointerup', end)
+      cv.removeEventListener('pointercancel', end)
+      cv.removeEventListener('wheel', wheel)
     }
-  }, [])
+  }, [refresh])
 
-  // ---------- interface ----------
+  const st = game.S
+  const vis = game.visiting
+  const max = S.eMax(st.nivel)
+  const pop = S.popNow()
+  const popMax = S.popMax()
+  const mode = game.mode
 
-  const s = gs.current
-  const t = Date.now()
-  const pop = G.population(s)
-  const eMax = G.energyMax(s.level)
-  const eNext = G.nextEnergyIn(s, t)
-  const need = G.xpNeed(s.level)
-  const popupB = popup ? G.byUid(s, popup) : undefined
-
-  const startPlacing = (d: BuildingDef) => {
-    setShopOpen(false)
-    setRoadMode(false)
-    setPlacing(d.id)
-    say('Toque num espaço livre')
+  const setMode = (m: S.Mode) => {
+    S.setMode(m)
+    refresh()
   }
+  const renameCity = () =>
+    setInfo({
+      kind: 'name',
+      o: {
+        titulo: 'Nome da sua cidade', atual: st.cidade, sortear: S.sugerirCidade,
+        ok: (v) => { st.cidade = v; S.save(); toast(`Bem-vinda a ${v}! 🏙️`) },
+      },
+    })
 
   return (
-    <div className="app">
-      <canvas ref={canvasRef} className="world" />
+    <>
+      <canvas ref={canvasRef} />
 
-      <header className="hud">
-        <button className="pill city" onClick={() => setDialog({ kind: 'city', value: s.cityName })}>
-          {s.cityName}
-        </button>
-        <div className="pill level" title={`${s.xp} de ${need} XP`}>
-          <Star />
-          <b>{s.level}</b>
-          <span className="xpbar">
-            <i style={{ width: `${(s.xp / need) * 100}%` }} />
-          </span>
-        </div>
-        <div className="pill"><Coin /><b>{s.gold.toLocaleString('pt-BR')}</b></div>
-        <div className="pill"><Cash /><b>{s.grana}</b></div>
+      <div className="hud">
+        <div className="pill"><span className="ico gold">$</span><span>{fmt(st.ouro)}</span></div>
+        <div className="pill"><span className="ico cash">G</span><span>{fmt(st.grana)}</span></div>
         <div className="pill">
-          <Bolt />
-          <b>{s.energy}/{eMax}</b>
-          {eNext > 0 && <small>{fmtTime(eNext)}</small>}
+          <span className="ico bolt">⚡</span>
+          <div>
+            <div>{st.energia}/{max}</div>
+            <div className="bar"><i style={{ width: `${Math.min(100, (st.energia / max) * 100)}%` }} /></div>
+          </div>
+          {st.energia < max && <span className="small">+1 em 0:{String(S.nextEnergyIn()).padStart(2, '0')}</span>}
         </div>
-        <div className="pill"><People /><b>{pop.pop}/{pop.max}</b></div>
-      </header>
-
-      {(placing || roadMode) && (
-        <div className="banner">
-          {placing ? defs[placing].name : `Ruas · ${cfg.road_cost} ouro`}
-          <button onClick={() => { setPlacing(null); setRoadMode(false); hover.current = null }}>
-            {roadMode ? 'Pronto' : 'Cancelar'}
-          </button>
-        </div>
-      )}
-
-      <nav className="dock">
-        <button className="big orange" onClick={() => { setShopOpen(true); setRoadMode(false); setPlacing(null) }}>Loja</button>
-        <button className={`big green ${roadMode ? 'on' : ''}`} onClick={() => { setPlacing(null); setRoadMode(!roadMode); hover.current = null }}>Ruas</button>
-        <button className="small" onClick={() => setDialog({ kind: 'reset' })} aria-label="Opções">⋯</button>
-      </nav>
-
-      {toast && <div className="toast" key={toast.id}>{toast.text}</div>}
-
-      {shopOpen && (
-        <Shop
-          level={s.level}
-          canAfford={(d) => G.canAfford(s, d)}
-          onPick={startPlacing}
-          onClose={() => setShopOpen(false)}
-        />
-      )}
-
-      {popupB && (
-        <div className="sheet-wrap" onClick={() => setPopup(null)}>
-          <div className="sheet small-sheet" onClick={(e) => e.stopPropagation()}>
-            <BuildingInfo
-              b={popupB}
-              cityName={s.cityName}
-              onRename={() => {
-                if (popupB.def === 'prefeitura') setDialog({ kind: 'city', value: s.cityName })
-                else setDialog({ kind: 'name', uid: popupB.uid, value: popupB.name || G.suggestName(defs[popupB.def]), isNew: false })
-                setPopup(null)
-              }}
-              onClose={() => setPopup(null)}
-            />
+        <div className="pill">
+          <span className="ico lvl">{st.nivel}</span>
+          <div>
+            <div className="small">Nível</div>
+            <div className="bar xp"><i style={{ width: `${(st.xp / S.need(st.nivel)) * 100}%` }} /></div>
           </div>
         </div>
-      )}
-
-      {dialog && dialog.kind !== 'reset' && (
-        <NameDialog
-          title={dialog.kind === 'city' ? 'Nome da cidade' : dialog.isNew ? `Dê um nome: ${defs[G.byUid(s, dialog.uid)?.def ?? 'casa'].name}` : 'Renomear'}
-          value={dialog.value}
-          onSuggest={() =>
-            dialog.kind === 'city' ? G.suggestCityName() : G.suggestName(defs[G.byUid(s, dialog.uid)?.def ?? 'casa'])
-          }
-          onSave={(v) => {
-            const clean = G.cleanName(v)
-            if (dialog.kind === 'city') {
-              if (clean) s.cityName = clean
-            } else {
-              const b = G.byUid(s, dialog.uid)
-              const d = b ? defs[b.def] : undefined
-              if (b && d && (clean || d.named !== 'required')) G.rename(b, clean)
-            }
-            setDialog(null)
-            commit()
-          }}
-          onCancel={() => setDialog(null)}
-        />
-      )}
-
-      {dialog?.kind === 'reset' && (
-        <div className="sheet-wrap" onClick={() => setDialog(null)}>
-          <div className="sheet small-sheet" onClick={(e) => e.stopPropagation()}>
-            <h2>Opções</h2>
-            <p>Começar uma cidade nova apaga a atual neste aparelho. Não dá pra desfazer.</p>
-            <div className="row">
-              <button className="btn" onClick={() => setDialog(null)}>Voltar</button>
-              <button
-                className="btn danger"
-                onClick={() => {
-                  gs.current = G.resetGame()
-                  setDialog(null)
-                  commit()
-                  say('Cidade nova criada!')
-                }}
-              >
-                Começar de novo
-              </button>
-            </div>
-          </div>
+        <div className="pill"><span className="ico pop">👥</span><span>{pop}/{popMax}</span></div>
+        <div className="pill city" onClick={() => !vis && renameCity()} title="Renomear cidade">
+          <span className="ico city">🏙️</span><span>{st.cidade}</span>
         </div>
-      )}
-    </div>
-  )
-}
+        <button className="gear" onClick={() => setInfo({ kind: 'options' })} title="Opções">⚙</button>
+      </div>
 
-// ---------- componentes ----------
-
-function Preview({ d }: { d: BuildingDef }) {
-  const ref = useRef<HTMLCanvasElement>(null)
-  useEffect(() => {
-    if (ref.current) drawPreview(ref.current, d)
-  }, [d])
-  return <canvas ref={ref} className="preview" />
-}
-
-function Shop(props: { level: number; canAfford: (d: BuildingDef) => boolean; onPick: (d: BuildingDef) => void; onClose: () => void }) {
-  const [tab, setTab] = useState<BuildingDef['category']>('casas')
-  const items = defList.filter((d) => d.category === tab)
-  return (
-    <div className="sheet-wrap" onClick={props.onClose}>
-      <div className="sheet shop" onClick={(e) => e.stopPropagation()}>
-        <div className="sheet-head">
-          <h2>Loja</h2>
-          <button className="x" onClick={props.onClose} aria-label="Fechar">×</button>
-        </div>
-        <div className="tabs">
-          {CATEGORIES.map((c) => (
-            <button key={c.id} className={tab === c.id ? 'on' : ''} onClick={() => setTab(c.id)}>{c.label}</button>
-          ))}
-        </div>
-        <div className="grid">
-          {items.map((d) => {
-            const locked = (d.level ?? 1) > props.level
-            const afford = props.canAfford(d)
+      {!vis && (
+        <div className="quests">
+          {S.ativas().map((m) => {
+            const ok = S.completa(m)
+            const tot = m.tarefas.reduce((s, t) => s + t.n, 0)
+            const fe = m.tarefas.reduce((s, t) => s + S.prog(m, t), 0)
             return (
-              <button key={d.id} className={`card ${locked ? 'locked' : ''}`} disabled={locked} onClick={() => props.onPick(d)}>
-                <Preview d={d} />
-                <strong>{d.name}</strong>
-                <span className="info">
-                  {d.income ? `Rende ${d.income} a cada ${G.cycleMs(d) / 1000}s` : d.popMax ? `+${d.popMax} pop. máxima` : 'Enfeita a cidade'}
-                </span>
-                {d.pop ? <span className="info">+{d.pop} moradores</span> : null}
-                {locked ? (
-                  <span className="price lock">Nível {d.level}</span>
-                ) : (
-                  <span className={`price ${afford ? '' : 'short'}`}>
-                    {d.price?.grana ? <Cash /> : <Coin />}
-                    {d.price?.grana ?? d.price?.gold}
-                  </span>
-                )}
-              </button>
+              <div key={m.id} className={`q ${ok ? 'ready' : ''} ${!st.mseen.includes(m.id) ? 'novo' : ''}`} onClick={() => {
+                if (!st.mseen.includes(m.id)) { st.mseen.push(m.id); S.save() }
+                setInfo({ kind: 'quest', id: m.id })
+              }}>
+                {m.ic}
+                <span className="qp">{ok ? '✓' : `${fe}/${tot}`}</span>
+              </div>
             )
           })}
         </div>
-      </div>
-    </div>
-  )
-}
+      )}
 
-function BuildingInfo(props: { b: import('./game/types').Building; cityName: string; onRename: () => void; onClose: () => void }) {
-  const { b } = props
-  const d = defs[b.def]
-  const t = Date.now()
-  const building = G.isBuilding(b, t)
-  const title = d.id === 'prefeitura' ? `Prefeitura de ${props.cityName}` : b.name || d.name
-  let status = ''
-  let progress = 0
-  if (building) {
-    status = `Em obra: fica pronto em ${fmtTime(Math.ceil((b.readyAt - t) / 1000))}`
-    progress = G.buildProgress(b, t)
-  } else if (d.income) {
-    const left = Math.ceil((G.cycleMs(d) - (t - b.lastCollect)) / 1000)
-    status = left > 0 ? `Próxima moeda em ${fmtTime(left)} · rende ${d.income}` : `Pronto pra coletar ${d.income}!`
-    progress = G.cycleProgress(b, t)
-  } else if (d.popMax) {
-    status = `Aumenta a população máxima em ${d.popMax}`
-  } else {
-    status = 'Deixa a cidade mais bonita'
-  }
-  return (
-    <>
-      <div className="sheet-head">
-        <div>
-          <h2>{title}</h2>
-          {b.name && d.id !== 'prefeitura' && <small className="sub">{d.name}</small>}
+      {vis ? (
+        <div className="banner on">
+          <Avatar b={vis.bot} size={34} />
+          <div>
+            {vis.bot.cidade} · {vis.bot.nome}, nível {st.botLv[vis.bot.id]}
+            <div className="small" style={{ opacity: 0.75 }}>Toque nas estrelas pra ajudar ({vis.helps}/{cfg.vizinhos.ajudas_por_visita})</div>
+          </div>
+          <button className="btn sm red" onClick={S.endVisit}>Voltar</button>
         </div>
-        <button className="x" onClick={props.onClose} aria-label="Fechar">×</button>
+      ) : mode.type === 'place' ? (
+        <div className="banner on">
+          <div>Toque num espaço vazio pra construir: <b>{DEFS[mode.k].nome}</b></div>
+          <button className="btn sm red" onClick={() => setMode({ type: 'none' })}>Cancelar</button>
+        </div>
+      ) : mode.type === 'road' ? (
+        <div className="banner on">
+          <div>Toque pra colocar ou tirar rua ({cfg.rua_custo} ouro)</div>
+          <button className="btn sm" onClick={() => setMode({ type: 'none' })}>Pronto</button>
+        </div>
+      ) : null}
+
+      <div id="toasts">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast ${t.big ? 'big' : ''} ${t.bot ? '' : 'plain'}`}>
+            {t.bot && <div className="mini" dangerouslySetInnerHTML={{ __html: avatarSVG(t.bot) }} />}
+            <span>{t.text}</span>
+          </div>
+        ))}
       </div>
-      <p>{status}</p>
-      {(building || d.income) ? <div className="progress"><i style={{ width: `${progress * 100}%` }} /></div> : null}
-      {d.pop ? <p className="muted">{d.pop} moradores</p> : null}
-      <div className="row">
-        {(d.named !== 'none' || d.id === 'prefeitura') && (
-          <button className="btn" onClick={props.onRename}>{d.id === 'prefeitura' ? 'Renomear cidade' : 'Renomear'}</button>
-        )}
-        <button className="btn primary" onClick={props.onClose}>OK</button>
+
+      <div className="bottom">
+        <div className="neighbors">
+          {BOTS.map((b) => (
+            <div className="nb" key={b.id} onClick={() => setNb(b.id)}>
+              <Avatar b={b} lv={st.botLv[b.id]} />
+              <div className="nm">{b.nome}</div>
+            </div>
+          ))}
+          <div className="nb add" onClick={() => toast('Logo dá pra criar quantos vizinhos bots quiser 🙂')}>
+            <div className="av">+</div>
+            <div className="nm">Convidar</div>
+          </div>
+        </div>
+        <div className="actions">
+          <button className="btn orange" disabled={!!vis} onClick={() => { setShop(true); setMode({ type: 'none' }) }}>🏪 Loja</button>
+          <button className="btn" disabled={!!vis} onClick={() => setMode(mode.type === 'road' ? { type: 'none' } : { type: 'road' })}>🛣️ Ruas</button>
+          <button className="btn blue" onClick={() => { st.unread = 0; S.save(); setFeed(true) }}>
+            📰 Mural{st.unread > 0 && <span className="badge on">{st.unread}</span>}
+          </button>
+        </div>
       </div>
+
+      {shop && (
+        <Modal title="Loja" onClose={() => setShop(false)}>
+          <div className="tabs">
+            {CATS.map(([k, n]) => (
+              <button key={k} className={`tab ${k === shopCat ? 'on' : ''}`} onClick={() => setShopCat(k)}>{n}</button>
+            ))}
+          </div>
+          <div className="grid">
+            {Object.entries(DEFS).filter(([, d]) => d.cat === shopCat).map(([k, d]) => {
+              const moeda = d.moeda === 'grana' ? 'grana' : 'ouro'
+              const lock = !!d.req && st.nivel < d.req
+              const afford = st[moeda] >= (d.preco ?? 0)
+              const det = d.renda
+                ? `+${d.renda} a cada ${S.tempoMs(k) / 1000}s` + (d.pop ? ` · ${d.pop} moradores` : '')
+                : d.popMax ? `+${d.popMax} de população máx.` : `+${d.xp} XP · enfeita a cidade`
+              return (
+                <div key={k} className={`card ${!afford || lock ? 'off' : ''}`} onClick={() => {
+                  if (lock) return toast(`Libera no nível ${d.req}`)
+                  if (!afford) return toast(`Falta ${moeda === 'grana' ? 'Grana' : 'Ouro'} pra isso`)
+                  setShop(false)
+                  setMode({ type: 'place', k })
+                }}>
+                  <canvas ref={(c) => { if (c && !c.dataset.k) { c.dataset.k = k; preview(c, k) } }} />
+                  <b>{d.nome}</b>
+                  <div className="det">{det}</div>
+                  <span className={`price ${moeda === 'grana' ? 'g' : ''}`}>{moeda === 'grana' ? 'G ' : '$ '}{fmt(d.preco ?? 0)}</span>
+                  {lock && <div className="lock">🔒 Nível {d.req}</div>}
+                </div>
+              )
+            })}
+          </div>
+        </Modal>
+      )}
+
+      {feed && (
+        <Modal title="Mural dos vizinhos" onClose={() => setFeed(false)}>
+          <div className="feed">
+            {!st.feed.length && <div className="empty">Nada por aqui ainda. Os vizinhos já já aparecem!</div>}
+            {st.feed.map((ev) => {
+              let act: ReactNode = null
+              if (!ev.done) {
+                const go = () => { S.actOnEvent(ev.id); refresh() }
+                if (ev.tipo === 'presente') act = <button className="btn sm" onClick={go}>Aceitar</button>
+                else if (ev.tipo === 'pedido') act = <button className="btn sm blue" onClick={go}>Ajudar</button>
+                else if (ev.tipo === 'nivel') act = <button className="btn sm orange" onClick={go}>Curtir</button>
+              } else if (ev.tipo !== 'fala' && ev.tipo !== 'visita') act = <span className="ok">✓ feito</span>
+              return <Post key={ev.id} ev={ev} act={act} />
+            })}
+          </div>
+        </Modal>
+      )}
+
+      {nb && (() => {
+        const b = botById(nb)
+        const sent = S.giftSentToday(b.id)
+        return (
+          <Modal title={b.nome} onClose={() => setNb(null)}>
+            <div className="body">
+              <div className="prof">
+                <Avatar b={b} lv={st.botLv[b.id]} />
+                <div><h3>{b.nome}</h3><div>Nível {st.botLv[b.id]} · {PERFIS[b.perfil ?? 'normal'].texto}</div></div>
+              </div>
+              <div className="row">
+                <button className="btn blue" onClick={() => { setNb(null); S.startVisit(b) }}>🏘️ Visitar cidade</button>
+                <button className="btn orange" disabled={sent} onClick={() => { setNb(null); S.sendGift(b); refresh() }}>
+                  {sent ? 'Presente enviado hoje' : '🎁 Mandar presente'}
+                </button>
+              </div>
+            </div>
+          </Modal>
+        )
+      })()}
+
+      {info && <InfoModal info={info} close={() => setInfo(null)} open={setInfo} renameCity={renameCity} toast={toast} refresh={refresh} />}
     </>
   )
 }
 
-function NameDialog(props: { title: string; value: string; onSuggest: () => string; onSave: (v: string) => void; onCancel: () => void }) {
-  const [v, setV] = useState(props.value)
+function Post({ ev, act }: { ev: Ev; act?: ReactNode }) {
   return (
-    <div className="sheet-wrap">
-      <form
-        className="sheet small-sheet"
-        onSubmit={(e) => {
-          e.preventDefault()
-          props.onSave(v)
-        }}
-      >
-        <h2>{props.title}</h2>
-        <div className="name-row">
-          <input value={v} maxLength={NAME_MAX} onChange={(e) => setV(e.target.value)} autoFocus aria-label="Nome" />
-          <button type="button" className="btn" onClick={() => setV(props.onSuggest())}>Sortear</button>
-        </div>
-        <small className="muted">{v.length}/{NAME_MAX} letras</small>
-        <div className="row">
-          <button type="button" className="btn" onClick={props.onCancel}>Cancelar</button>
-          <button type="submit" className="btn primary">Salvar</button>
-        </div>
-      </form>
+    <div className="post">
+      <div className="mini" dangerouslySetInnerHTML={{ __html: avatarSVG(botById(ev.bot)) }} />
+      <div className="tx">{ev.texto}<div className="tm">{ago(ev.t)}</div></div>
+      {act}
     </div>
+  )
+}
+
+function NameForm({ o, close, toast }: { o: AskName; close: () => void; toast: (t: string) => void }) {
+  const [v, setV] = useState(o.atual)
+  const done = () => {
+    const val = v.trim().slice(0, NAME_MAX)
+    if (!val) return toast('Escreve um nome 🙂')
+    close()
+    o.ok(val)
+  }
+  return (
+    <div className="body">
+      <input className="nameIn" maxLength={NAME_MAX} value={v} autoFocus onFocus={(e) => e.target.select()}
+        onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && done()} />
+      <div className="hint">Até {NAME_MAX} letras. Aparece na placa embaixo do prédio.</div>
+      <div className="row">
+        {o.sortear && <button className="btn sm orange" onClick={() => setV(o.sortear!())}>🎲 Sortear</button>}
+        <button className="btn" onClick={done}>Confirmar</button>
+      </div>
+    </div>
+  )
+}
+
+function InfoModal(p: { info: Info; close: () => void; open: (i: Info) => void; renameCity: () => void; toast: (t: string, o?: { big?: boolean; bot?: Bot }) => void; refresh: () => void }) {
+  const { info, close } = p
+  const st = game.S
+  if (info.kind === 'name') {
+    return <Modal title={info.o.titulo} onClose={close}><NameForm o={info.o} close={close} toast={p.toast} /></Modal>
+  }
+  if (info.kind === 'building') {
+    const b = info.b
+    const d = DEFS[b.k]
+    const now = Date.now()
+    const nm = S.nomeDe(b, st.cidade) || d.nome
+    let status = ''
+    if (d.renda) {
+      const left = S.tempoMs(b.k) - (now - b.start)
+      status = left > 0 ? `Pronto em ${Math.ceil(left / 1000)}s` : 'Pronto pra coletar!'
+    }
+    const linhas = [
+      ['Tipo', d.nome], d.renda ? ['Rende', `${d.renda} ouro a cada ${S.tempoMs(b.k) / 1000}s`] : null,
+      d.pop ? ['Moradores', d.pop] : null, d.popMax ? ['População máxima', `+${d.popMax}`] : null, status ? ['Status', status] : null,
+    ].filter(Boolean) as [string, string | number][]
+    return (
+      <Modal title={nm} onClose={close}>
+        <div className="body">
+          {linhas.map(([a, v]) => <div className="stat" key={a}><span>{a}</span><b>{v}</b></div>)}
+          <div className="row">
+            <button className="btn sm orange" onClick={() => {
+              if (b.k === 'prefeitura') return p.renameCity()
+              p.open({ kind: 'name', o: { titulo: 'Renomear', atual: b.nome || d.nome, sortear: () => S.sugerirNome(b.k), ok: (v) => { b.nome = v; S.save(); p.toast(`Agora se chama ${v} ✨`) } } })
+            }}>✏️ {b.k === 'prefeitura' ? 'Renomear cidade' : 'Renomear'}</button>
+            <button className="btn sm" onClick={close}>Fechar</button>
+          </div>
+        </div>
+      </Modal>
+    )
+  }
+  if (info.kind === 'quest') {
+    const m = MISSOES.find((x) => x.id === info.id)!
+    const ok = S.completa(m)
+    return (
+      <Modal title={m.titulo} onClose={close}>
+        <div className="body">
+          <div className="giver">
+            <Avatar b={ASSESSOR} />
+            <div className="balao"><b>{ASSESSOR.nome}, assessor:</b> {ok ? 'Mandou bem demais! Aqui tá sua recompensa.' : m.fala}</div>
+          </div>
+          {m.tarefas.map((t) => {
+            const pr = S.prog(m, t)
+            return (
+              <div key={t.t} className={`task ${pr >= t.n ? 'ok' : ''}`}>
+                {pr >= t.n ? '✅' : '⬜'} {t.t} <b style={{ float: 'right' }}>{pr}/{t.n}</b>
+                <div className="tb"><i style={{ width: `${(pr / t.n) * 100}%` }} /></div>
+              </div>
+            )
+          })}
+          <div className="reward">{S.premioTxt(m.premio).map((x) => <span key={x}>{x}</span>)}</div>
+          <div className="row">
+            {ok
+              ? <button className="btn orange" onClick={() => { close(); S.claim(m.id); p.refresh() }}>🎁 Resgatar</button>
+              : <button className="btn sm" onClick={close}>Bora!</button>}
+          </div>
+        </div>
+      </Modal>
+    )
+  }
+  if (info.kind === 'options') {
+    return (
+      <Modal title="Opções" onClose={close}>
+        <div className="body">
+          <p>Os vizinhos são bots que agem sozinhos, mesmo com o jogo fechado. Sua cidade fica salva só neste aparelho.</p>
+          <p><b>Dicas:</b> arraste pra mover o mapa, use pinça (ou a roda do mouse) pra zoom, toque nas moedas pra coletar e nas árvores pra cortar.</p>
+          <div className="row">
+            <button className="btn sm orange" onClick={() => { st.placas = !st.placas; S.save(); close() }}>🏷️ {st.placas ? 'Esconder placas' : 'Mostrar placas'}</button>
+            <button className="btn sm" onClick={() => { centerCam(window.innerWidth, window.innerHeight); close() }}>Centralizar mapa</button>
+            <button className="btn sm red" onClick={() => p.open({ kind: 'reset' })}>Recomeçar do zero</button>
+          </div>
+        </div>
+      </Modal>
+    )
+  }
+  if (info.kind === 'reset') {
+    return (
+      <Modal title="Opções" onClose={close}>
+        <div className="body">
+          <p>Apagar a cidade e começar de novo?</p>
+          <div className="row">
+            <button className="btn sm red" onClick={() => {
+              S.reset()
+              spawnCars(game.S.map, cfg.carros.na_cidade)
+              close()
+              p.toast('Cidade nova! 🏙️')
+              p.refresh()
+            }}>Sim, recomeçar</button>
+            <button className="btn sm" onClick={close}>Não</button>
+          </div>
+        </div>
+      </Modal>
+    )
+  }
+  // boas-vindas
+  return (
+    <Modal title={info.first ? 'Bem-vinda à Cidade Feliz!' : 'Bem-vinda de volta, prefeita!'} onClose={close}>
+      <div className="body">
+        <p>{info.first ? 'Uma cidade só sua, no estilo dos jogos de 2010. Os vizinhos já estão se mexendo por aqui.' : 'Sua cidade continuou rendendo enquanto você estava fora.'}</p>
+        {info.evs.length > 0 && <p><b>Enquanto você estava fora:</b></p>}
+        {info.evs.map((ev) => <Post key={ev.id} ev={ev} />)}
+        <div className="row"><button className="btn orange" onClick={close}>Bora jogar!</button></div>
+      </div>
+    </Modal>
   )
 }

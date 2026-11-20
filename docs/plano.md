@@ -166,7 +166,7 @@ Cinco fases, cada uma termina com algo jogável que a Julia testa antes de segui
 1. **Fundação:** criar o projeto, mapa isométrico 16x16 com grama e ruas, câmera com arrastar e zoom.
    - [x] Pronto quando: abre pelo link, mostra o mapa e dá pra passear por ele.
 2. **Cidade jogável:** construções do catálogo, nomes dos estabelecimentos, obra, moedas, coleta, energia, XP, nível, população, árvores, ruas, save e load.
-   - [ ] Pronto quando: dá pra fechar o jogo, abrir horas depois e coletar o que rendeu.
+   - [x] Pronto quando: dá pra fechar o jogo, abrir horas depois e coletar o que rendeu.
 3. **Interface completa:** HUD, Loja com abas e cadeado por nível, missões do Seu Joaquim, mensagens flutuantes, avisos, tela de opções.
    - [ ] Pronto quando: dá pra jogar só com toque/clique, sem nada de debug na tela.
 4. **Vizinhos bots:** barra de vizinhos, Mural, eventos, presentes, simulação offline, visitas às cidades geradas.

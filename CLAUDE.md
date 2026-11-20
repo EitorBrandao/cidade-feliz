@@ -13,9 +13,12 @@ Jogo de construir cidade isométrico, sucessor espiritual dos jogos sociais de 2
 
 ## Arquitetura
 
-- `src/game/state.ts`: regras puras (construir, coletar, energia, XP, ruas, árvores, save). Recebe o tempo como parâmetro; produção usa o relógio do sistema, então rende com o app fechado.
-- `src/game/render.ts`: tudo que é desenho no canvas. Profundidade por `x + y`. Arte provisória em formas; o visual de cada construção vem de `look` em `data/buildings.json`.
-- `src/App.tsx`: interface React (HUD, Loja, popups, nomes) e gestos (arrastar, pinça, roda, toque). O estado do jogo fica num ref; a interface re-renderiza a cada segundo e após cada ação.
+O visual e as regras foram portados do protótipo HTML aprovado pela Julia (`docs/prototipo.html`). Em dúvida de como algo deve parecer ou se comportar, ele é a referência.
+
+- `data/*.json`: catálogo, mapa inicial, nomes sugeridos, bots e perfis, recados do Mural, missões do Seu Joaquim, números da economia.
+- `src/game/state.ts`: estado e regras (construir, coletar, energia, XP, ruas, árvores, bots, Mural, visitas, missões, save e migração). Fala com a interface pelo objeto `fx`.
+- `src/game/render.ts`: desenho no canvas (chão, construções, carrinhos, placas, nuvens), câmera e escolha do tile tocado.
+- `src/App.tsx`: interface React (HUD, missões, barra de vizinhos, Loja, Mural, janelas) e gestos.
 
 ## Comandos
 

@@ -1,13 +1,13 @@
 {
-  "lanchonete": ["Lanchonete do Zé", "Lanche da Esquina", "X-Tudo da Vila", "Lanchonete Bom Bocado", "Pastelaria da Feira", "Lanches do Tio Beto"],
-  "padaria": ["Padaria Pão Quente", "Padaria Trigo de Ouro", "Panificadora Bom Dia", "Padaria da Dona Rosa", "Pão de Cada Dia"],
-  "mercadinho": ["Mercadinho Bom Preço", "Mercearia do Seu Antônio", "Empório da Vila", "Mercadinho Sol Nascente", "Armazém Central"],
-  "sorveteria": ["Sorveteria Gelato Feliz", "Picolé da Praça", "Sorvete do Polo", "Sorveteria Casquinha", "Gelada Doce"],
-  "escola": ["Escola Monteiro Lobato", "Escola Primeiros Passos", "Escola Estadual Cidade Feliz", "Colégio Saber", "Escola Arco-Íris"],
-  "posto": ["Posto de Saúde Central", "UBS Bem-Estar", "Posto Vida Boa", "Posto de Saúde da Vila", "Clínica da Família"],
-  "casa": ["Casa da Vó", "Cantinho Feliz", "Lar Doce Lar", "Casa Amarela", "Recanto do Sol"],
-  "chale": ["Chalé da Serra", "Chalé Azul", "Refúgio Azul"],
-  "sobrado": ["Sobrado das Flores", "Sobrado Esperança", "Casa Grande"],
-  "predio": ["Edifício Horizonte", "Residencial Aurora", "Edifício Primavera", "Condomínio Vista Bela"],
-  "cidade": ["Cidade Feliz", "Vila Alegria", "Nova Esperança", "Recanto Verde", "Bela Vista do Sol"]
+  "lanchonete": ["Lanchonete do Zé", "Point do Lanche", "X-Tudo da Esquina", "Burguer Mania", "Lanches Sabor Real", "Cantinho do Lanche", "Lanches da {n}"],
+  "padaria": ["Padaria Pão Quente", "Panificadora Trigo Bom", "Padaria Nossa Senhora", "Pão de Ouro", "Padaria Bella Massa", "Padaria da {n}"],
+  "mercado": ["Mercadinho Bom Preço", "Mercado São Jorge", "Empório da Vila", "Super Econômico", "Mercadinho Família", "Mercadinho da {n}"],
+  "sorveteria": ["Sorveteria Gelato", "Picolé Feliz", "Sorveteria Polo Norte", "Gelato da Praça", "Sorvetes da {n}"],
+  "escola": ["E.E. Monteiro Lobato", "Escola Pequeno Príncipe", "E.M. Cecília Meireles", "Colégio Futuro Brilhante", "Escola Paulo Freire"],
+  "posto": ["UBS Vila Feliz", "Posto de Saúde Central", "UBS Jardim das Flores", "UBS Dr. Sabino"],
+  "casa": ["Casa Amarela", "Cantinho da Paz", "Lar Doce Lar"],
+  "chale": ["Chalé das Flores", "Recanto Azul"],
+  "sobrado": ["Sobrado dos Silva", "Casarão da Esquina"],
+  "predio": ["Edifício Primavera", "Residencial Aurora", "Edifício Copan Mirim"],
+  "cidade": ["Vila Esperança", "Cidade Feliz", "Jardim Primavera", "Nova Aurora", "Vale do Sol", "Recanto Verde", "Porto Alegria"]
 }

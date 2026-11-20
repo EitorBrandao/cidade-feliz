@@ -1,0 +1,19 @@
+{
+  "perfis": {
+    "generosa": { "texto": "Vive mandando presente", "pesos": { "presente": 5, "visita": 3, "fala": 2, "pedido": 1, "nivel": 1 }, "sempre_devolve": true },
+    "competitivo": { "texto": "Quer ser o maior prefeito da rua", "pesos": { "nivel": 4, "fala": 2, "pedido": 1, "presente": 1, "visita": 1 } },
+    "pedinte": { "texto": "Sempre precisando de uma ajudinha", "pesos": { "pedido": 5, "fala": 2, "presente": 1, "nivel": 1 } },
+    "sumido": { "texto": "Aparece de vez em quando", "pesos": { "fala": 1, "presente": 1 } },
+    "novata": { "texto": "Começou a jogar agora", "pesos": { "fala": 3, "pedido": 2, "nivel": 2, "presente": 1 } },
+    "normal": { "texto": "Joga todo dia à noite", "pesos": { "presente": 2, "visita": 2, "fala": 2, "pedido": 2, "nivel": 2 } }
+  },
+  "bots": [
+    { "id": "mari", "nome": "Mari", "cor": "#e5568a", "nivel": 14, "perfil": "generosa", "long": true, "hair": "#4a2a14", "skin": "#f1c7a5", "cidade": "Vila da Mari", "peso": 1 },
+    { "id": "dario", "nome": "Dario", "cor": "#2c8fe0", "nivel": 22, "perfil": "competitivo", "long": false, "hair": "#1d1d1d", "skin": "#c68b5e", "cidade": "Cidade do Dario", "peso": 1 },
+    { "id": "cida", "nome": "Dona Cida", "cor": "#8e5ac8", "nivel": 9, "perfil": "generosa", "long": true, "hair": "#bdbdbd", "skin": "#e8b98f", "cidade": "Jardim da Cida", "peso": 1 },
+    { "id": "kelly", "nome": "Kelly", "cor": "#26a69a", "nivel": 17, "perfil": "pedinte", "long": true, "hair": "#e0a43a", "skin": "#f5d0b0", "cidade": "Kellyland", "peso": 1 },
+    { "id": "thiago", "nome": "Thiago", "cor": "#f19a12", "nivel": 6, "perfil": "sumido", "long": false, "hair": "#5a3a1a", "skin": "#8d5a3b", "cidade": "Thiagópolis", "peso": 0.25 },
+    { "id": "rafa", "nome": "Rafa", "cor": "#ef5350", "nivel": 11, "perfil": "normal", "long": false, "hair": "#2b1a0e", "skin": "#e0ac83", "cidade": "Rafaville", "peso": 1 },
+    { "id": "bia", "nome": "Bia", "cor": "#7cb342", "nivel": 3, "perfil": "novata", "long": true, "hair": "#111111", "skin": "#a86f4a", "cidade": "Bialândia", "peso": 1 }
+  ]
+}

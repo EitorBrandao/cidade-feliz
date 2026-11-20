@@ -1,0 +1,18 @@
+{
+  "assessor": { "id": "joaquim", "nome": "Seu Joaquim", "cor": "#f19a12", "long": false, "hair": "#e0e0e0", "skin": "#f1c7a5" },
+  "ativas_max": 3,
+  "missoes": [
+    { "id": "m1", "ic": "🏠", "titulo": "Bem-vinda, prefeita!", "fala": "Que bom te ver por aqui! Os moradores pagam aluguel direitinho. Vamos recolher?", "tarefas": [{ "t": "Colete 3 aluguéis de casas", "k": "coletar:casas", "n": 3 }], "premio": { "ouro": 50, "xp": 20 } },
+    { "id": "m2", "ic": "🔨", "titulo": "Mais moradores", "fala": "Tem gente querendo morar aqui! Constrói uma casinha pra eles?", "tarefas": [{ "t": "Construa 1 casa", "k": "construir:casas", "n": 1 }, { "t": "Colete 2 vezes em qualquer lugar", "k": "coletar", "n": 2 }], "premio": { "ouro": 80, "xp": 25 } },
+    { "id": "m3", "ic": "🌳", "titulo": "Limpando o terreno", "fala": "Esse mato todo atrapalha as obras. Dá uma limpada?", "tarefas": [{ "t": "Corte 3 árvores", "k": "cortar", "n": 3 }], "premio": { "ouro": 40, "xp": 15 } },
+    { "id": "m4", "ic": "🛣️", "titulo": "Bairro conectado", "fala": "Cidade boa é cidade com rua asfaltada. Bora abrir caminho?", "tarefas": [{ "t": "Coloque 4 pedaços de rua", "k": "rua", "n": 4 }], "premio": { "ouro": 60, "xp": 20 } },
+    { "id": "m5", "ic": "🤝", "titulo": "Bons vizinhos", "fala": "Prefeita que é prefeita conhece a vizinhança! Visita o pessoal e ajuda lá.", "tarefas": [{ "t": "Ajude 3 vezes na cidade de vizinhos", "k": "ajudar", "n": 3 }, { "t": "Mande 1 presente", "k": "presente", "n": 1 }], "premio": { "grana": 1, "xp": 30 } },
+    { "id": "m6", "ic": "🍔", "titulo": "Fome de negócio", "fala": "O povo quer gastar dinheiro aqui! Abre um comércio e vê o movimento.", "tarefas": [{ "t": "Construa 1 comércio", "k": "construir:comercio", "n": 1 }, { "t": "Colete 3 vezes de comércios", "k": "coletar:comercio", "n": 3 }], "premio": { "ouro": 120, "xp": 40 } },
+    { "id": "m7", "ic": "🏫", "titulo": "Educação em primeiro lugar", "fala": "As crianças precisam estudar, e com escola cabe mais gente na cidade.", "tarefas": [{ "t": "Construa 1 escola", "k": "construir:escola", "n": 1 }], "premio": { "ouro": 150, "xp": 50 } },
+    { "id": "m8", "ic": "🌷", "titulo": "Cidade bonita", "fala": "Turista gosta de flor e praça. Dá um trato no visual?", "tarefas": [{ "t": "Construa 2 decorações", "k": "construir:decoracao", "n": 2 }], "premio": { "ouro": 60, "xp": 25 } },
+    { "id": "m9", "ic": "🥖", "titulo": "Pão quentinho", "fala": "Cidade sem padaria não é cidade! (libera no nível 2)", "tarefas": [{ "t": "Construa 1 padaria", "k": "construir:padaria", "n": 1 }], "premio": { "grana": 1, "xp": 50 } },
+    { "id": "m10", "ic": "👥", "titulo": "Cidade grande", "fala": "Tá crescendo, hein! Vamos chegar a 50 moradores?", "tarefas": [{ "t": "Tenha 50 moradores", "stat": "pop", "n": 50 }], "premio": { "ouro": 200, "xp": 60 } },
+    { "id": "m11", "ic": "💰", "titulo": "Comerciante de mão cheia", "fala": "Comércio girando é cidade rica. Recolhe bastante coisa dos comércios!", "tarefas": [{ "t": "Colete 10 vezes de comércios", "k": "coletar:comercio", "n": 10 }], "premio": { "ouro": 250, "xp": 80 } },
+    { "id": "m12", "ic": "🏢", "titulo": "Arranha-céu", "fala": "Agora sim, cidade de verdade: bora levantar um prédio! (libera no nível 4)", "tarefas": [{ "t": "Construa 1 prédio", "k": "construir:predio", "n": 1 }], "premio": { "grana": 2, "xp": 100 } }
+  ]
+}
