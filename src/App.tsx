@@ -314,7 +314,7 @@ export default function App() {
     setShopOpen(false)
     setRoadMode(false)
     setPlacing(d.id)
-    say(`Toque num espaço livre pra construir: ${d.name}`)
+    say('Toque num espaço livre')
   }
 
   return (
@@ -344,7 +344,7 @@ export default function App() {
 
       {(placing || roadMode) && (
         <div className="banner">
-          {placing ? `Construindo: ${defs[placing].name}` : `Modo ruas: toque pra pôr (${cfg.road_cost} ouro) ou tirar`}
+          {placing ? defs[placing].name : `Ruas · ${cfg.road_cost} ouro`}
           <button onClick={() => { setPlacing(null); setRoadMode(false); hover.current = null }}>
             {roadMode ? 'Pronto' : 'Cancelar'}
           </button>

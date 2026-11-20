@@ -65,7 +65,7 @@ button { font: inherit; cursor: pointer; }
   position: absolute; left: 50%; transform: translateX(-50%);
   bottom: calc(env(safe-area-inset-bottom) + 86px);
   display: flex; gap: 10px; align-items: center;
-  padding: 6px 6px 6px 14px; max-width: calc(100% - 20px);
+  padding: 6px 6px 6px 14px; max-width: calc(100% - 20px); white-space: nowrap;
   background: var(--pill); color: #fff; border-radius: 999px; box-shadow: var(--shadow);
   font-size: 15px; font-weight: 600;
 }
@@ -121,7 +121,7 @@ button { font: inherit; cursor: pointer; }
 
 /* loja */
 .shop { height: 82%; }
-.tabs { display: flex; gap: 6px; overflow-x: auto; flex: none; padding-bottom: 2px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; flex: none; padding-bottom: 2px; }
 .tabs button {
   flex: none; height: 40px; padding: 0 14px; border-radius: 12px;
   border: 3px solid var(--ink); background: #fff; font-weight: 800; color: var(--ink);
