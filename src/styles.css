@@ -90,6 +90,14 @@ button{font-family:inherit}
 .q.ready{border-color:#f19a12;animation:pulse 1s ease-in-out infinite}
 .q.ready .qp{background:#3fa02a}
 .q.novo::after{content:'!';position:absolute;top:-6px;left:-6px;width:20px;height:20px;border-radius:50%;background:#e53935;color:#fff;font-size:13px;font-weight:800;display:grid;place-items:center;border:2px solid #fff}
+.q.feito{opacity:.7}
+.baus{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px}
+.bau{background:#fff;border:2px solid #e6d6a6;border-radius:10px;padding:3px 1px;text-align:center;font-size:10px;line-height:1.15;min-width:0}
+.bau .d{font-weight:800;opacity:.75}
+.bau .ic{font-size:20px;margin:2px 0}
+.bau .v span{display:block;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bau.hoje{border-color:#f19a12;background:#fff4d6;transform:scale(1.08);box-shadow:0 2px 0 rgba(0,0,0,.2)}
+.bau.foi{opacity:.55}
 @keyframes pulse{50%{transform:scale(1.1)}}
 .giver{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px}
 .giver .av{width:56px;height:56px;margin:0;flex:0 0 56px}

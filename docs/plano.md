@@ -123,6 +123,13 @@ Missões guiam a jogadora de nível em nível. Elas são dadas pelo Seu Joaquim,
 
 No jogo final, a lista deve continuar além da 12, acompanhando cada construção nova que for liberada.
 
+**Pedido do Dia:**
+
+- [x] Feito em 21/11/2026. Todo dia o Seu Joaquim pede 3 tarefinhas sorteadas (4º ícone redondo, 📋, embaixo das missões). A semente é a data, então o mesmo dia dá o mesmo pedido, sem rede.
+- [x] Só sorteia o que dá pra fazer no nível e na cidade atual (sem padaria antes do nível 2, sem cortar árvore se não tem árvore).
+- [x] Baú de 7 degraus (o 7º dá Grana); depois do 7 recomeça no 1. Uma folga por semana (segunda a domingo) não quebra a sequência; sumir mais que isso volta um degrau, nunca zera.
+- [x] Modelos, faixas por nível, baús e falas em `data/missions.json` (bloco `diarias`). Save na versão 4, com migração.
+
 **Para depois (não estão no protótipo):** expansão de terreno, praia e ilha, mover e vender construções, eventos sazonais (Natal, Carnaval), sons e música.
 
 ## Vizinhos bots

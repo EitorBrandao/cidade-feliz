@@ -42,7 +42,10 @@ export interface Bot {
   peso?: number
 }
 export interface Tarefa { t: string; k?: string; stat?: 'pop'; n: number }
-export interface Missao { id: string; ic: string; titulo: string; fala: string; tarefas: Tarefa[]; premio: { ouro?: number; grana?: number; xp?: number } }
+export interface Faixa { nivel: number; min: number; max: number }
+export interface ModeloDiario { id: string; t: string; k: string; precisa?: string; faixas: Faixa[] }
+export type Premio = { ouro?: number; grana?: number; xp?: number }
+export interface Missao { id: string; ic: string; titulo: string; fala: string; tarefas: Tarefa[]; premio: Premio }
 
 export const cfg = configJson
 export const DEFS = buildingsJson.construcoes as Record<string, Def>
@@ -58,6 +61,11 @@ export const MSG = messagesJson
 export const ASSESSOR = missionsJson.assessor as Bot
 export const MISSOES = missionsJson.missoes as Missao[]
 export const ATIVAS_MAX = missionsJson.ativas_max
+export const DIARIAS = missionsJson.diarias as {
+  id: string; ic: string; titulo: string; quantas: number
+  modelos: ModeloDiario[]; baus: Premio[]
+  falas: { novo: string[]; completo: string[]; resgatado: string[]; folga: string; quebra: string; aviso_novo: string; aviso_completo: string; resgate: string; amanha: string }
+}
 
 export const botById = (id: string) => BOTS.find((b) => b.id === id) ?? BOTS[0]
 export const NAME_MAX = 24

@@ -14,5 +14,40 @@
     { "id": "m10", "ic": "👥", "titulo": "Cidade grande", "fala": "Tá crescendo, hein! Vamos chegar a 50 moradores?", "tarefas": [{ "t": "Tenha 50 moradores", "stat": "pop", "n": 50 }], "premio": { "ouro": 200, "xp": 60 } },
     { "id": "m11", "ic": "💰", "titulo": "Comerciante de mão cheia", "fala": "Comércio girando é cidade rica. Recolhe bastante coisa dos comércios!", "tarefas": [{ "t": "Colete 10 vezes de comércios", "k": "coletar:comercio", "n": 10 }], "premio": { "ouro": 250, "xp": 80 } },
     { "id": "m12", "ic": "🏢", "titulo": "Arranha-céu", "fala": "Agora sim, cidade de verdade: bora levantar um prédio! (libera no nível 4)", "tarefas": [{ "t": "Construa 1 prédio", "k": "construir:predio", "n": 1 }], "premio": { "grana": 2, "xp": 100 } }
-  ]
+  ],
+  "diarias": {
+    "id": "pedido", "ic": "📋", "titulo": "Pedido do Dia", "quantas": 3,
+    "modelos": [
+      {"id": "coletar", "t": "Colete {n} vezes em qualquer lugar", "k": "coletar", "faixas": [{"nivel": 1, "min": 4, "max": 6}, {"nivel": 3, "min": 6, "max": 10}, {"nivel": 6, "min": 10, "max": 15}]},
+      {"id": "coletar_casas", "t": "Colete {n} aluguéis de casas", "k": "coletar:casas", "precisa": "casas", "faixas": [{"nivel": 1, "min": 3, "max": 5}, {"nivel": 3, "min": 5, "max": 8}, {"nivel": 6, "min": 8, "max": 12}]},
+      {"id": "coletar_comercio", "t": "Colete {n} vezes de comércios", "k": "coletar:comercio", "precisa": "comercio", "faixas": [{"nivel": 1, "min": 2, "max": 4}, {"nivel": 3, "min": 4, "max": 7}, {"nivel": 6, "min": 7, "max": 10}]},
+      {"id": "coletar_padaria", "t": "Colete {n} fornadas na padaria", "k": "coletar:padaria", "precisa": "padaria", "faixas": [{"nivel": 2, "min": 2, "max": 3}, {"nivel": 5, "min": 3, "max": 5}]},
+      {"id": "coletar_mercado", "t": "Colete {n} vezes no mercadinho", "k": "coletar:mercado", "precisa": "mercado", "faixas": [{"nivel": 3, "min": 2, "max": 3}, {"nivel": 6, "min": 3, "max": 5}]},
+      {"id": "cortar", "t": "Corte {n} árvores", "k": "cortar", "precisa": "arvores", "faixas": [{"nivel": 1, "min": 2, "max": 3}, {"nivel": 4, "min": 3, "max": 5}]},
+      {"id": "rua", "t": "Coloque {n} pedaços de rua", "k": "rua", "faixas": [{"nivel": 1, "min": 2, "max": 3}, {"nivel": 4, "min": 3, "max": 5}]},
+      {"id": "ajudar", "t": "Ajude {n} vezes na cidade de vizinhos", "k": "ajudar", "faixas": [{"nivel": 1, "min": 3, "max": 5}, {"nivel": 4, "min": 5, "max": 8}, {"nivel": 8, "min": 8, "max": 10}]},
+      {"id": "presente", "t": "Mande {n} presentes pra vizinhos", "k": "presente", "faixas": [{"nivel": 1, "min": 1, "max": 2}, {"nivel": 4, "min": 2, "max": 3}]},
+      {"id": "decoracao", "t": "Construa {n} decorações", "k": "construir:decoracao", "faixas": [{"nivel": 1, "min": 1, "max": 2}, {"nivel": 5, "min": 2, "max": 3}]}
+    ],
+    "baus": [
+      {"ouro": 40, "xp": 10},
+      {"ouro": 60, "xp": 15},
+      {"ouro": 80, "xp": 20},
+      {"ouro": 110, "xp": 25},
+      {"ouro": 140, "xp": 30},
+      {"ouro": 180, "xp": 40},
+      {"ouro": 220, "xp": 60, "grana": 1}
+    ],
+    "falas": {
+      "novo": ["Bom dia, prefeita! A cidade fez uns pedidinhos hoje. Topa?", "Trouxe a listinha do dia. Coisa rápida, prometo!", "A ouvidoria lotou de recado. Bora resolver três deles?", "Café passado, lista na mão. Vamos trabalhar, prefeita!"],
+      "completo": ["Tudo pronto! O baú tá aqui esperando por você.", "Eficiência pura! Pode abrir o baú, é seu.", "Nem acredito, já terminou? Pega o baú, vai!"],
+      "resgatado": ["Aproveita o baú! Amanhã tem pedido novo, hein.", "Mandou bem hoje. Volta amanhã que o baú cresce!", "Missão do dia cumprida. Vou ali tomar um cafezinho."],
+      "folga": "Ontem foi sua folga da semana, guardei seu lugar 😉",
+      "quebra": "Sumiu uns dias, hein! O baú voltou um degrau, mas nada se perde.",
+      "aviso_novo": "Pedido do Dia chegou! Toque no {ic} pra ver",
+      "aviso_completo": "Pedido do Dia completo! Toque no {ic} pra abrir o baú",
+      "resgate": "Baú do dia {dia}! +{premio}",
+      "amanha": "Volta amanhã pro próximo degrau do baú"
+    }
+  }
 }

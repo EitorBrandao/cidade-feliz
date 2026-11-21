@@ -1,10 +1,11 @@
 // Regras do jogo: estado, economia, vizinhos bots, visitas e missões.
 // A interface conversa com isto pelo objeto `fx` (toasts, números flutuando, janelas).
-import { ASSESSOR, ATIVAS_MAX, BOTS, botById, cfg, DEFS, MISSOES, MSG, NOMES, PERFIS, START, type Bot, type Missao, type Tarefa } from './data'
+import { ASSESSOR, ATIVAS_MAX, BOTS, botById, cfg, DEFS, DIARIAS, MISSOES, MSG, NOMES, PERFIS, START, type Bot, type Missao, type Premio, type Tarefa } from './data'
 import { fill, hash, pick, rand, rng } from './util'
 
 export const N = cfg.map_size
 const SAVE_KEY = 'cidade-feliz-save-v1'
+const VERSION = 4
 const MULT = cfg.time_multiplier
 
 export interface B { k: string; builtAt: number; start: number; nome?: string; help?: boolean }
@@ -12,7 +13,7 @@ export interface Tile { r: boolean; b: B | null; tree: boolean }
 export type EvTipo = 'presente' | 'pedido' | 'fala' | 'visita' | 'nivel'
 export interface Ev { id: number; bot: string; tipo: EvTipo; texto: string; t: number; done: boolean; give?: { ouro?: number; energia?: number } }
 export interface State {
-  version: 3
+  version: 4
   map: Tile[]
   ouro: number
   grana: number
@@ -33,6 +34,13 @@ export interface State {
   mnotif: string[]
   pending: { at: number; ev: Ev }[]
   lastSeen: number
+  // Pedido do Dia
+  pedidoDia: string
+  pedidoBase: Record<string, number>
+  pedidoTarefas: Tarefa[]
+  pedidoResgatado: string
+  sequencia: number
+  folgaUsada: number
 }
 export interface Visit { bot: Bot; map: Tile[]; helps: number }
 export type Mode = { type: 'none' } | { type: 'place'; k: string } | { type: 'road' }
@@ -90,10 +98,21 @@ function newState(): State {
   const botLv: Record<string, number> = {}
   BOTS.forEach((b) => (botLv[b.id] = b.nivel ?? 1))
   return {
-    version: 3, map: m, ouro: cfg.start.ouro, grana: cfg.start.grana, energia: cfg.start.energia, eLast: now,
+    version: VERSION, map: m, ouro: cfg.start.ouro, grana: cfg.start.grana, energia: cfg.start.energia, eLast: now,
     xp: 0, nivel: cfg.start.nivel, feed: [], unread: 0, botLv, sent: {}, cidade: cfg.start.cidade, placas: true,
     cnt: {}, claimed: [], mbase: {}, mseen: [], mnotif: [], pending: [], lastSeen: now,
+    ...pedidoVazio(),
   }
+}
+
+const pedidoVazio = () => ({ pedidoDia: '', pedidoBase: {}, pedidoTarefas: [] as Tarefa[], pedidoResgatado: '', sequencia: 0, folgaUsada: -1 })
+
+/** Leva um save antigo até a versão atual, passo a passo. Devolve null se não der pra aproveitar. */
+function upgrade(s: any): State | null {
+  if (!s || typeof s !== 'object') return null
+  if (s.version === 1) s = migrateV1(s)
+  if (s.version === 3) Object.assign(s, pedidoVazio(), { version: 4 })
+  return s.version === VERSION ? (s as State) : null
 }
 
 /** Converte o save da primeira versão (antes do protótipo) sem perder a cidade. */
@@ -140,9 +159,9 @@ export function load() {
   } catch {
     s = null
   }
-  if (s && s.version === 1) s = migrateV1(s)
-  game.firstTime = !s || s.version !== 3
-  game.S = game.firstTime ? newState() : (s as State)
+  s = upgrade(s)
+  game.firstTime = !s
+  game.S = s ?? newState()
   const S = game.S
   S.pending ??= []
   S.map.forEach((t) => {
@@ -286,6 +305,7 @@ export function tapCity(x: number, y: number) {
         b.start = now
         track('coletar')
         track('coletar:' + d.cat)
+        track('coletar:' + b.k)
         const xp = Math.ceil(d.renda / cfg.coleta_xp_divisor)
         fx.float(x, y, '+' + d.renda, '#ffe36b')
         fx.float(x, y, `+${xp} XP`, '#8fd6ff', 90)
@@ -535,7 +555,7 @@ export function prog(m: Missao, t: Tarefa) {
   return Math.min(t.n, (S.cnt[t.k!] || 0) - ((S.mbase[m.id] || {})[t.k!] || 0))
 }
 export const completa = (m: Missao) => m.tarefas.every((t) => prog(m, t) >= t.n)
-export const premioTxt = (p: Missao['premio']) =>
+export const premioTxt = (p: Premio) =>
   [p.ouro ? `$ ${p.ouro}` : '', p.grana ? `G ${p.grana}` : '', p.xp ? `${p.xp} XP` : ''].filter(Boolean)
 
 /** Avisa quando uma missão fica completa (uma vez só). */
@@ -546,6 +566,7 @@ export function checkMissions() {
       S.mnotif.push(m.id)
       fx.toast(`Missão completa: ${m.titulo}! Toque no ícone pra resgatar`, { bot: ASSESSOR })
     }
+  checkPedido()
 }
 
 export function claim(id: string) {
@@ -561,4 +582,117 @@ export function claim(id: string) {
   const nova = ativas().find((x) => !S.mseen.includes(x.id))
   if (nova) setTimeout(() => fx.toast(`Nova missão: ${nova.titulo} ${nova.ic}`, { bot: ASSESSOR }), 2700)
   save()
+}
+
+// ---------- Pedido do Dia ----------
+
+const F = DIARIAS.falas
+const hoje = () => new Date().toDateString()
+/** Dia local como número inteiro (1 = 2/1/1970), sem pegadinha de horário de verão. */
+const diaNum = (ds: string) => {
+  const d = new Date(ds)
+  return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000)
+}
+/** Segunda-feira da semana do dia (semana do calendário, de segunda a domingo). */
+const semanaDe = (n: number) => n - ((n + 3) % 7)
+const qtdArvores = () => game.S.map.filter((t) => t.tree).length
+const tem = (x: string) => game.S.map.some((t) => t.b && Date.now() >= t.b.builtAt && (t.b.k === x || DEFS[t.b.k].cat === x))
+
+function possivel(m: { k: string; precisa?: string }, f: { max: number }) {
+  const S = game.S
+  const [acao, alvo] = m.k.split(':')
+  if (alvo && DEFS[alvo]?.req && S.nivel < DEFS[alvo].req!) return false
+  if (acao === 'presente' && f.max > BOTS.length) return false
+  if (m.precisa === 'arvores') return qtdArvores() >= f.max
+  return !m.precisa || tem(m.precisa)
+}
+
+/** Sorteia as tarefas do dia. A semente é a data, então o mesmo dia sempre dá o mesmo pedido. */
+function sortearPedido(dia: string): Tarefa[] {
+  const S = game.S
+  const R = rng(hash(dia))
+  const pool = DIARIAS.modelos
+    .map((m) => ({ m, f: [...m.faixas].reverse().find((f) => f.nivel <= S.nivel) }))
+    .filter((x) => x.f && possivel(x.m, x.f))
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(R() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  return pool.slice(0, DIARIAS.quantas).map(({ m, f }) => {
+    const n = f!.min + Math.floor(R() * (f!.max - f!.min + 1))
+    return { t: fill(m.t, { n }), k: m.k, n }
+  })
+}
+
+/** Pedido de hoje. Vira o dia: sorteia o novo e marca o ponto de partida dos contadores. */
+export function pedido() {
+  const S = game.S
+  const dia = hoje()
+  if (S.pedidoDia !== dia) {
+    S.pedidoDia = dia
+    S.pedidoBase = { ...S.cnt }
+    S.pedidoTarefas = sortearPedido(dia)
+    S.mseen = S.mseen.filter((x) => !x.startsWith('dia:'))
+    S.mnotif = S.mnotif.filter((x) => !x.startsWith('dia:'))
+  }
+  return S.pedidoTarefas
+}
+export const progDia = (t: Tarefa) => Math.max(0, Math.min(t.n, (game.S.cnt[t.k!] || 0) - (game.S.pedidoBase[t.k!] || 0)))
+export const pedidoResgatado = () => game.S.pedidoResgatado === hoje()
+export const pedidoCompleto = () => pedido().every((t) => progDia(t) >= t.n)
+export const pedidoVisto = () => game.S.mseen.includes('dia:' + hoje())
+export function verPedido() {
+  if (!pedidoVisto()) { game.S.mseen.push('dia:' + hoje()); save() }
+}
+
+/**
+ * Degrau do baú de hoje (1 a 7). Dia seguido sobe um; uma folga por semana do calendário não quebra;
+ * sumir mais que isso volta um degrau, nunca zera. Depois do 7 recomeça no 1.
+ */
+export function degrauHoje() {
+  const S = game.S
+  if (pedidoResgatado()) return { degrau: S.sequencia, folga: false, quebra: false }
+  if (!S.pedidoResgatado || S.sequencia < 1) return { degrau: 1, folga: false, quebra: false }
+  const d = diaNum(hoje())
+  const gap = d - diaNum(S.pedidoResgatado)
+  const sobe = (S.sequencia % DIARIAS.baus.length) + 1
+  if (gap <= 1) return { degrau: sobe, folga: false, quebra: false }
+  if (gap === 2 && S.folgaUsada !== semanaDe(d - 1)) return { degrau: sobe, folga: true, quebra: false }
+  return { degrau: Math.max(1, S.sequencia - 1), folga: false, quebra: true }
+}
+
+/** Fala do Seu Joaquim, sorteada uma vez por dia. */
+export function falaPedido() {
+  const l = pedidoResgatado() ? F.resgatado : pedidoCompleto() ? F.completo : F.novo
+  return pick(l, rng(hash('fala' + hoje())))
+}
+
+export function resgatarPedido() {
+  const S = game.S
+  if (pedidoResgatado() || !pedidoCompleto()) return
+  const { degrau, folga } = degrauHoje()
+  if (folga) S.folgaUsada = semanaDe(diaNum(hoje()) - 1)
+  S.sequencia = degrau
+  S.pedidoResgatado = hoje()
+  const p = DIARIAS.baus[degrau - 1]
+  if (p.ouro) S.ouro += p.ouro
+  if (p.grana) S.grana += p.grana
+  fx.toast(fill(F.resgate, { dia: degrau, premio: premioTxt(p).join(' +') }), { big: true })
+  if (p.xp) addXP(p.xp)
+  setTimeout(() => fx.toast(pick(F.resgatado), { bot: ASSESSOR }), 2700)
+  save()
+}
+
+function checkPedido() {
+  const S = game.S
+  pedido()
+  const id = 'dia:' + hoje()
+  if (!pedidoVisto() && !S.mnotif.includes(id + ':novo')) {
+    S.mnotif.push(id + ':novo')
+    fx.toast(fill(F.aviso_novo, { ic: DIARIAS.ic }), { bot: ASSESSOR })
+  }
+  if (!pedidoResgatado() && pedidoCompleto() && !S.mnotif.includes(id)) {
+    S.mnotif.push(id)
+    fx.toast(fill(F.aviso_completo, { ic: DIARIAS.ic }), { bot: ASSESSOR })
+  }
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ASSESSOR, BOTS, botById, CATS, cfg, DEFS, MISSOES, NAME_MAX, PERFIS, type Bot } from './game/data'
+import { ASSESSOR, BOTS, botById, CATS, cfg, DEFS, DIARIAS, MISSOES, NAME_MAX, PERFIS, type Bot } from './game/data'
 import * as S from './game/state'
 import { game, type AskName, type B, type Ev } from './game/state'
 import { addFloat, avatarSVG, cam, centerCam, pickObj, pickTile, preview, render, spawnCars, updCars } from './game/render'
@@ -9,6 +9,7 @@ type Info =
   | { kind: 'building'; b: B }
   | { kind: 'name'; o: AskName }
   | { kind: 'quest'; id: string }
+  | { kind: 'pedido' }
   | { kind: 'options' }
   | { kind: 'reset' }
   | { kind: 'welcome'; evs: Ev[]; first: boolean }
@@ -284,6 +285,22 @@ export default function App() {
               </div>
             )
           })}
+          {(() => {
+            const ts = S.pedido()
+            const feito = S.pedidoResgatado()
+            const ok = !feito && S.pedidoCompleto()
+            const tot = ts.reduce((s, t) => s + t.n, 0)
+            const fe = ts.reduce((s, t) => s + S.progDia(t), 0)
+            return (
+              <div className={`q dia ${ok ? 'ready' : ''} ${!S.pedidoVisto() ? 'novo' : ''} ${feito ? 'feito' : ''}`} onClick={() => {
+                S.verPedido()
+                setInfo({ kind: 'pedido' })
+              }}>
+                {DIARIAS.ic}
+                <span className="qp">{feito || ok ? '✓' : `${fe}/${tot}`}</span>
+              </div>
+            )
+          })()}
         </div>
       )}
 
@@ -507,6 +524,55 @@ function InfoModal(p: { info: Info; close: () => void; open: (i: Info) => void; 
             {ok
               ? <button className="btn orange" onClick={() => { close(); S.claim(m.id); p.refresh() }}>🎁 Resgatar</button>
               : <button className="btn sm" onClick={close}>Bora!</button>}
+          </div>
+        </div>
+      </Modal>
+    )
+  }
+  if (info.kind === 'pedido') {
+    const ts = S.pedido()
+    const feito = S.pedidoResgatado()
+    const ok = !feito && S.pedidoCompleto()
+    const { degrau, folga, quebra } = S.degrauHoje()
+    const F = DIARIAS.falas
+    return (
+      <Modal title={DIARIAS.titulo} onClose={close}>
+        <div className="body">
+          <div className="giver">
+            <Avatar b={ASSESSOR} />
+            <div className="balao">
+              <b>{ASSESSOR.nome}, assessor:</b> {S.falaPedido()}
+              {!feito && folga && <div className="small">{F.folga}</div>}
+              {!feito && quebra && <div className="small">{F.quebra}</div>}
+            </div>
+          </div>
+          {ts.map((t) => {
+            const pr = S.progDia(t)
+            return (
+              <div key={t.k} className={`task ${pr >= t.n ? 'ok' : ''}`}>
+                {pr >= t.n ? '✅' : '⬜'} {t.t} <b style={{ float: 'right' }}>{pr}/{t.n}</b>
+                <div className="tb"><i style={{ width: `${(pr / t.n) * 100}%` }} /></div>
+              </div>
+            )
+          })}
+          <div className="baus">
+            {DIARIAS.baus.map((b, i) => {
+              const n = i + 1
+              return (
+                <div key={n} className={`bau ${n === degrau ? 'hoje' : ''} ${n < degrau || (feito && n === degrau) ? 'foi' : ''}`}>
+                  <div className="d">Dia {n}</div>
+                  <div className="ic">{n < degrau || (feito && n === degrau) ? '✅' : b.grana ? '💎' : '🎁'}</div>
+                  <div className="v">{S.premioTxt(b).map((x) => <span key={x}>{x}</span>)}</div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="row">
+            {ok
+              ? <button className="btn orange" onClick={() => { close(); S.resgatarPedido(); p.refresh() }}>🎁 Resgatar</button>
+              : feito
+                ? <><span className="hint">{F.amanha}</span><button className="btn sm" onClick={close}>Fechar</button></>
+                : <button className="btn sm" onClick={close}>Bora!</button>}
           </div>
         </div>
       </Modal>
