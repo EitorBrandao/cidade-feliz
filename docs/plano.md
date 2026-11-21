@@ -164,6 +164,14 @@ Cada perfil tem pesos diferentes pra cada tipo. Os textos ficam em `messages.jso
 4. **Cidade visitável:** gerada a partir de uma semente fixa por bot, cresce com o nível (mais ruas, prédios maiores). Até 5 ajudas por visita, cada uma +12 ouro e +3 XP.
 5. **Imperfeição:** sumiços de dias, "kkkk", erros de digitação ocasionais, emojis.
 
+**Cartão-postal (visita entre pessoas, sem servidor):**
+
+- [x] Feito em 21/11/2026. Em Opções (⚙), o botão "Mandar cartão-postal" coloca a cidade inteira dentro do link, depois do `#`, comprimida. No celular abre o menu de compartilhar (WhatsApp); no PC copia o link.
+- [x] Quem abre o link entra na cidade como numa visita de vizinho: 5 estrelas pra ajudar, carrinhos e placas. Nada da cidade visitada vai pro save de quem visita, só o XP, o ouro e o contador de ajudas.
+- [x] Campo "Colar cartão-postal" em Opções, pro app instalado no iPhone (que não divide dados com o Safari). Aceita o link inteiro ou só o código.
+- [x] Depois das 5 ajudas, dá pra mandar um link de obrigado; quem abre ganha um presente, uma vez só por cartão (`postaisVistos`).
+- [x] Tudo que vem do link é conferido (tamanho, 16x16 tiles, construção existente, nomes até 24 letras). Link quebrado só mostra um aviso. Save na versão 5, com migração.
+
 **Opcional, só no fim:** uma IA local (ex.: Ollama com modelo pequeno) pode variar os recados, ainda sem internet. Começar com frases prontas.
 
 ## Fases

@@ -1,11 +1,11 @@
 // Regras do jogo: estado, economia, vizinhos bots, visitas e missões.
 // A interface conversa com isto pelo objeto `fx` (toasts, números flutuando, janelas).
-import { ASSESSOR, ATIVAS_MAX, BOTS, botById, cfg, DEFS, DIARIAS, MISSOES, MSG, NOMES, PERFIS, START, type Bot, type Missao, type Premio, type Tarefa } from './data'
+import { ASSESSOR, ATIVAS_MAX, BOTS, botById, cfg, DEFS, NAME_MAX, DIARIAS, MISSOES, MSG, NOMES, PERFIS, START, type Bot, type Missao, type Premio, type Tarefa } from './data'
 import { fill, hash, pick, rand, rng } from './util'
 
 export const N = cfg.map_size
 const SAVE_KEY = 'cidade-feliz-save-v1'
-const VERSION = 4
+const VERSION = 5
 const MULT = cfg.time_multiplier
 
 export interface B { k: string; builtAt: number; start: number; nome?: string; help?: boolean }
@@ -13,7 +13,7 @@ export interface Tile { r: boolean; b: B | null; tree: boolean }
 export type EvTipo = 'presente' | 'pedido' | 'fala' | 'visita' | 'nivel'
 export interface Ev { id: number; bot: string; tipo: EvTipo; texto: string; t: number; done: boolean; give?: { ouro?: number; energia?: number } }
 export interface State {
-  version: 4
+  version: 5
   map: Tile[]
   ouro: number
   grana: number
@@ -41,11 +41,14 @@ export interface State {
   pedidoResgatado: string
   sequencia: number
   folgaUsada: number
+  // cartão-postal
+  meuNome: string
+  postaisVistos: string[]
 }
-export interface Visit { bot: Bot; map: Tile[]; helps: number }
+export interface Visit { bot: Bot; map: Tile[]; helps: number; nivel?: number; postal?: { id: string; de: string } }
 export type Mode = { type: 'none' } | { type: 'place'; k: string } | { type: 'road' }
 export interface ToastOpts { big?: boolean; bot?: Bot }
-export interface AskName { titulo: string; atual: string; sortear?: () => string; ok: (v: string) => void }
+export interface AskName { titulo: string; atual: string; dica?: string; sortear?: () => string; ok: (v: string) => void }
 
 export const fx = {
   toast: (_text: string, _o?: ToastOpts) => {},
@@ -53,6 +56,7 @@ export const fx = {
   openBuilding: (_b: B) => {},
   askName: (_o: AskName) => {},
   visitChanged: () => {},
+  postalAjudado: (_v: Visit) => {},
 }
 
 // ---------- utilidades ----------
@@ -101,7 +105,7 @@ function newState(): State {
     version: VERSION, map: m, ouro: cfg.start.ouro, grana: cfg.start.grana, energia: cfg.start.energia, eLast: now,
     xp: 0, nivel: cfg.start.nivel, feed: [], unread: 0, botLv, sent: {}, cidade: cfg.start.cidade, placas: true,
     cnt: {}, claimed: [], mbase: {}, mseen: [], mnotif: [], pending: [], lastSeen: now,
-    ...pedidoVazio(),
+    ...pedidoVazio(), meuNome: '', postaisVistos: [],
   }
 }
 
@@ -112,6 +116,7 @@ function upgrade(s: any): State | null {
   if (!s || typeof s !== 'object') return null
   if (s.version === 1) s = migrateV1(s)
   if (s.version === 3) Object.assign(s, pedidoVazio(), { version: 4 })
+  if (s.version === 4) Object.assign(s, { meuNome: '', postaisVistos: [], version: 5 })
   return s.version === VERSION ? (s as State) : null
 }
 
@@ -534,7 +539,8 @@ export function tapVisit(x: number, y: number) {
     fx.float(x, y, `+${V.ajuda_xp} XP`, '#8fd6ff', 90)
     if (v.helps === V.ajudas_por_visita) {
       fx.toast(`Você ajudou bastante! ${v.bot.nome} vai adorar ❤️`, { bot: v.bot })
-      schedule(v.bot, 'fala', fill(MSG.agradece_visita, { n: v.bot.nome }), rand(8000, 16000))
+      if (v.postal) fx.postalAjudado(v)
+      else schedule(v.bot, 'fala', fill(MSG.agradece_visita, { n: v.bot.nome }), rand(8000, 16000))
     }
     save()
   } else if (tile.b && v.helps >= V.ajudas_por_visita) fx.toast('Você já ajudou o máximo hoje nessa cidade')
@@ -695,4 +701,140 @@ function checkPedido() {
     S.mnotif.push(id)
     fx.toast(fill(F.aviso_completo, { ic: DIARIAS.ic }), { bot: ASSESSOR })
   }
+}
+
+// ---------- cartão-postal ----------
+// A cidade viaja dentro do link, depois do "#" (que não vai pra servidor nenhum).
+// Visitar um postal não grava nada no save, fora XP, ouro e o contador das ajudas.
+
+const P = cfg.postal
+const MP = MSG.postal
+type PostalTile = number | [number, string, string?]
+export interface Postal { v: 1; id: string; de: string; cidade: string; nivel: number; t: PostalTile[] }
+
+function toB64u(b: Uint8Array) {
+  let s = ''
+  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i])
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+function fromB64u(s: string) {
+  const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'))
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0))
+}
+/** Passa os bytes por um CompressionStream/DecompressionStream, parando se passar do limite. */
+async function viaStream(bytes: Uint8Array, ts: TransformStream<Uint8Array, Uint8Array>, limite = Infinity) {
+  const rd = new Blob([bytes]).stream().pipeThrough(ts).getReader()
+  const parts: Uint8Array[] = []
+  let n = 0
+  for (;;) {
+    const { done, value } = await rd.read()
+    if (done) break
+    n += value.length
+    if (n > limite) { rd.cancel().catch(() => {}); throw new Error('grande demais') }
+    parts.push(value)
+  }
+  const out = new Uint8Array(n)
+  let o = 0
+  for (const p of parts) { out.set(p, o); o += p.length }
+  return out
+}
+const temZip = () => typeof CompressionStream !== 'undefined' && typeof DecompressionStream !== 'undefined'
+
+/** Monta o link do cartão-postal com a cidade dentro. Código: "z" + deflate ou "j" + JSON puro. */
+export async function exportPostal() {
+  const S = game.S
+  const t: PostalTile[] = S.map.map((tile) => {
+    const f = (tile.r ? 1 : 0) | (tile.tree ? 2 : 0)
+    if (!tile.b) return f
+    return tile.b.nome ? [f, tile.b.k, tile.b.nome] : [f, tile.b.k]
+  })
+  const dados: Postal = { v: 1, id: Math.random().toString(36).slice(2, 10), de: S.meuNome, cidade: S.cidade, nivel: S.nivel, t }
+  const bytes = new TextEncoder().encode(JSON.stringify(dados))
+  const codigo = temZip()
+    ? 'z' + toB64u(await viaStream(bytes, new CompressionStream('deflate-raw')))
+    : 'j' + toB64u(bytes)
+  return P.url + '#postal=' + codigo
+}
+
+/** Aceita o link inteiro, só o "#postal=..." ou só o código. */
+export function lerLink(txt: string): { tipo: 'postal' | 'obrigado'; codigo: string } | null {
+  const s = txt.trim()
+  if (!s) return null
+  const m = s.match(/(postal|obrigado)=([^\s&#]*)/)
+  if (m) return { tipo: m[1] as 'postal' | 'obrigado', codigo: m[2] }
+  return { tipo: 'postal', codigo: s }
+}
+
+const nomeOk = (x: unknown) => typeof x === 'string' && x.trim().length > 0 && x.length <= NAME_MAX
+const has = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k)
+
+/** Decodifica e confere tudo que veio do link. Qualquer coisa estranha: null. */
+export async function decodePostal(codigo: string): Promise<Postal | null> {
+  try {
+    if (codigo.length < 2 || codigo.length > P.max_codigo || !/^[zj][A-Za-z0-9_-]+$/.test(codigo)) return null
+    let bytes = fromB64u(codigo.slice(1))
+    if (codigo[0] === 'z') {
+      if (!temZip()) return null
+      bytes = await viaStream(bytes, new DecompressionStream('deflate-raw'), P.max_json)
+    } else if (bytes.length > P.max_json) return null
+    const d = JSON.parse(new TextDecoder().decode(bytes))
+    if (!d || typeof d !== 'object' || d.v !== 1) return null
+    if (typeof d.id !== 'string' || !/^[a-z0-9]{1,16}$/.test(d.id)) return null
+    if (!nomeOk(d.de) || !nomeOk(d.cidade)) return null
+    if (!Number.isInteger(d.nivel) || d.nivel < 1 || d.nivel > P.nivel_max) return null
+    if (!Array.isArray(d.t) || d.t.length !== N * N) return null
+    const flagOk = (f: unknown) => Number.isInteger(f) && (f as number) >= 0 && (f as number) <= 3
+    for (const x of d.t) {
+      if (flagOk(x)) continue
+      if (!Array.isArray(x) || x.length < 2 || x.length > 3 || !flagOk(x[0])) return null
+      if (typeof x[1] !== 'string' || !has(DEFS, x[1])) return null
+      if (x.length === 3 && !nomeOk(x[2])) return null
+    }
+    return { v: 1, id: d.id, de: d.de.trim(), cidade: d.cidade.trim(), nivel: d.nivel, t: d.t }
+  } catch {
+    return null
+  }
+}
+
+/** Entra na cidade do postal como numa visita a bot. Nada disso vai pro save. */
+export function startPostal(p: Postal) {
+  setMode({ type: 'none' })
+  const map: Tile[] = p.t.map((x) => {
+    if (typeof x === 'number') return { r: !!(x & 1), tree: !(x & 1) && !!(x & 2), b: null }
+    const b: B = { k: x[1], builtAt: 0, start: 0 }
+    if (x[2]) b.nome = x[2].trim()
+    return { r: false, tree: false, b }
+  })
+  const rendem = map.map((t) => t.b).filter((b): b is B => !!b && !!DEFS[b.k].renda)
+  for (let i = rendem.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[rendem[i], rendem[j]] = [rendem[j], rendem[i]]
+  }
+  rendem.slice(0, V.ajudas_por_visita).forEach((b) => (b.help = true))
+  const bot: Bot = { id: 'postal', nome: p.de, cidade: p.cidade, nivel: p.nivel, ...MP.avatar }
+  game.visiting = { bot, map, helps: 0, nivel: p.nivel, postal: { id: p.id, de: p.de } }
+  fx.visitChanged()
+}
+
+/** Link de agradecimento: #obrigado=<id>.<nome de quem ajudou> */
+export function linkObrigado(v: Visit) {
+  const nome = game.S.meuNome ? '.' + toB64u(new TextEncoder().encode(game.S.meuNome)) : ''
+  return P.url + '#obrigado=' + v.postal!.id + nome
+}
+
+/** Quem abre o obrigado ganha um presente, uma vez só por cartão. */
+export function abrirObrigado(codigo: string) {
+  const S = game.S
+  const [id, nb] = codigo.split('.')
+  if (!/^[a-z0-9]{1,16}$/.test(id || '')) return fx.toast(MP.erro)
+  let de = MP.obrigado_alguem
+  try {
+    const n = nb ? new TextDecoder('utf-8', { fatal: true }).decode(fromB64u(nb)) : ''
+    if (nomeOk(n)) de = n.trim()
+  } catch { /* nome quebrado: fica "Um vizinho" */ }
+  if (S.postaisVistos.includes(id)) return fx.toast(MP.obrigado_repetido)
+  S.postaisVistos = [...S.postaisVistos, id].slice(-P.vistos_max)
+  S.ouro += P.obrigado_ouro
+  fx.toast(fill(MP.obrigado_ganhou, { de, ouro: P.obrigado_ouro }), { big: true })
+  save()
 }

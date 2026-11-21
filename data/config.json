@@ -30,6 +30,7 @@
     "presente_volta_segundos": [20, 35],
     "feed_max": 40
   },
+  "postal": { "url": "https://eitorbrandao.github.io/cidade-feliz/", "max_codigo": 20000, "max_json": 200000, "nivel_max": 999, "obrigado_ouro": 60, "vistos_max": 500 },
   "carros": { "na_cidade": 5, "na_visita": 8, "cores": ["#e53935", "#ffca28", "#2c8fe0", "#ffffff", "#7cb342", "#8e5ac8"] },
   "camera": { "zoom_min": 0.35, "zoom_max": 2 }
 }

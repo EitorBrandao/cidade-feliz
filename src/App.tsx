@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ASSESSOR, BOTS, botById, CATS, cfg, DEFS, DIARIAS, MISSOES, NAME_MAX, PERFIS, type Bot } from './game/data'
+import { ASSESSOR, BOTS, botById, CATS, cfg, DEFS, DIARIAS, MISSOES, MSG, NAME_MAX, PERFIS, type Bot } from './game/data'
 import * as S from './game/state'
-import { game, type AskName, type B, type Ev } from './game/state'
+import { game, type AskName, type B, type Ev, type Visit } from './game/state'
 import { addFloat, avatarSVG, cam, centerCam, pickObj, pickTile, preview, render, spawnCars, updCars } from './game/render'
-import { ago, fmt } from './game/util'
+import { ago, fill, fmt } from './game/util'
+
+const MP = MSG.postal
 
 type Info =
   | { kind: 'building'; b: B }
   | { kind: 'name'; o: AskName }
   | { kind: 'quest'; id: string }
   | { kind: 'pedido' }
+  | { kind: 'link'; url: string }
+  | { kind: 'obrigado'; v: Visit }
   | { kind: 'options' }
   | { kind: 'reset' }
   | { kind: 'welcome'; evs: Ev[]; first: boolean }
@@ -62,6 +66,7 @@ export default function App() {
     S.fx.float = addFloat
     S.fx.openBuilding = (b) => setInfo({ kind: 'building', b })
     S.fx.askName = (o) => setInfo({ kind: 'name', o })
+    S.fx.postalAjudado = (v) => setInfo({ kind: 'obrigado', v })
     S.fx.visitChanged = () => {
       const { W, H } = size.current
       spawnCars(S.curMap(), game.visiting ? cfg.carros.na_visita : cfg.carros.na_cidade)
@@ -72,6 +77,54 @@ export default function App() {
     if (game.firstTime || evs.length) setInfo({ kind: 'welcome', evs, first: game.firstTime })
     S.save()
   }, [toast, refresh])
+
+  /** Abre um link de cartão-postal ou de obrigado (do endereço ou colado nas opções). */
+  const abrirLink = useCallback(async (txt: string) => {
+    const l = S.lerLink(txt)
+    if (!l) { toast(MP.erro); return false }
+    if (l.tipo === 'obrigado') { S.abrirObrigado(l.codigo); refresh(); return true }
+    const p = await S.decodePostal(l.codigo)
+    if (!p) { toast(MP.erro); return false }
+    setShop(false); setFeed(false); setNb(null)
+    S.startPostal(p)
+    toast(fill(MP.joaquim_chegou, { de: p.de }), { bot: ASSESSOR })
+    return true
+  }, [toast, refresh])
+
+  // link com #postal= ou #obrigado=: abre e limpa o endereço
+  useEffect(() => {
+    const ver = () => {
+      const h = location.hash
+      if (!/^#(postal|obrigado)=/.test(h)) return
+      history.replaceState(null, '', location.pathname + location.search)
+      abrirLink(h)
+    }
+    ver()
+    window.addEventListener('hashchange', ver)
+    return () => window.removeEventListener('hashchange', ver)
+  }, [abrirLink])
+
+  /** Compartilha pelo menu do celular; sem ele, copia; sem cópia, mostra o link pra copiar na mão. */
+  const compartilhar = useCallback(async (url: string, title: string, text: string) => {
+    if (navigator.share) {
+      try { await navigator.share({ title, text, url }); return } catch (e) {
+        if ((e as Error).name === 'AbortError') return
+      }
+    }
+    try { await navigator.clipboard.writeText(url); toast(MP.copiado); return } catch { /* segue pro manual */ }
+    setInfo({ kind: 'link', url })
+  }, [toast])
+
+  const mandarPostal = useCallback(() => {
+    const enviar = async () => {
+      let url = ''
+      try { url = await S.exportPostal() } catch { return toast(MP.sem_suporte) }
+      const v = { de: game.S.meuNome, cidade: game.S.cidade }
+      compartilhar(url, fill(MP.titulo, v), fill(MP.texto, v))
+    }
+    if (game.S.meuNome) return enviar()
+    setInfo({ kind: 'name', o: { titulo: MP.pergunta_nome, atual: '', dica: MP.pergunta_dica, ok: (v) => { game.S.meuNome = v; S.save(); enviar() } } })
+  }, [compartilhar, toast])
 
   // canvas: laço do jogo e gestos
   useEffect(() => {
@@ -308,7 +361,9 @@ export default function App() {
         <div className="banner on">
           <Avatar b={vis.bot} size={34} />
           <div>
-            {vis.bot.cidade} · {vis.bot.nome}, nível {st.botLv[vis.bot.id]}
+            {vis.postal
+              ? fill(MP.banner, { cidade: vis.bot.cidade ?? '', de: vis.postal.de, nivel: vis.nivel ?? 1 })
+              : `${vis.bot.cidade} · ${vis.bot.nome}, nível ${st.botLv[vis.bot.id]}`}
             <div className="small" style={{ opacity: 0.75 }}>Toque nas estrelas pra ajudar ({vis.helps}/{cfg.vizinhos.ajudas_por_visita})</div>
           </div>
           <button className="btn sm red" onClick={S.endVisit}>Voltar</button>
@@ -429,7 +484,8 @@ export default function App() {
         )
       })()}
 
-      {info && <InfoModal info={info} close={() => setInfo(null)} open={setInfo} renameCity={renameCity} toast={toast} refresh={refresh} />}
+      {info && <InfoModal info={info} close={() => setInfo(null)} open={setInfo} renameCity={renameCity} toast={toast} refresh={refresh}
+        abrirLink={abrirLink} mandarPostal={mandarPostal} compartilhar={compartilhar} />}
     </>
   )
 }
@@ -456,7 +512,7 @@ function NameForm({ o, close, toast }: { o: AskName; close: () => void; toast: (
     <div className="body">
       <input className="nameIn" maxLength={NAME_MAX} value={v} autoFocus onFocus={(e) => e.target.select()}
         onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && done()} />
-      <div className="hint">Até {NAME_MAX} letras. Aparece na placa embaixo do prédio.</div>
+      <div className="hint">{o.dica ?? `Até ${NAME_MAX} letras. Aparece na placa embaixo do prédio.`}</div>
       <div className="row">
         {o.sortear && <button className="btn sm orange" onClick={() => setV(o.sortear!())}>🎲 Sortear</button>}
         <button className="btn" onClick={done}>Confirmar</button>
@@ -465,7 +521,25 @@ function NameForm({ o, close, toast }: { o: AskName; close: () => void; toast: (
   )
 }
 
-function InfoModal(p: { info: Info; close: () => void; open: (i: Info) => void; renameCity: () => void; toast: (t: string, o?: { big?: boolean; bot?: Bot }) => void; refresh: () => void }) {
+function ColarPostal({ abrir, close }: { abrir: (t: string) => Promise<boolean>; close: () => void }) {
+  const [v, setV] = useState('')
+  const ir = async () => { if (await abrir(v)) close() }
+  return (
+    <div className="colar">
+      <b>{MP.colar_titulo}</b>
+      <div className="hint">{MP.colar_dica}</div>
+      <div className="row">
+        <input className="nameIn" value={v} placeholder="https://...#postal=..." onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ir()} />
+        <button className="btn sm blue" onClick={ir}>{MP.colar_botao}</button>
+      </div>
+    </div>
+  )
+}
+
+function InfoModal(p: {
+  info: Info; close: () => void; open: (i: Info) => void; renameCity: () => void; toast: (t: string, o?: { big?: boolean; bot?: Bot }) => void; refresh: () => void
+  abrirLink: (t: string) => Promise<boolean>; mandarPostal: () => void; compartilhar: (url: string, title: string, text: string) => Promise<void>
+}) {
   const { info, close } = p
   const st = game.S
   if (info.kind === 'name') {
@@ -584,10 +658,51 @@ function InfoModal(p: { info: Info; close: () => void; open: (i: Info) => void; 
         <div className="body">
           <p>Os vizinhos são bots que agem sozinhos, mesmo com o jogo fechado. Sua cidade fica salva só neste aparelho.</p>
           <p><b>Dicas:</b> arraste pra mover o mapa, use pinça (ou a roda do mouse) pra zoom, toque nas moedas pra coletar e nas árvores pra cortar.</p>
+          {!game.visiting && (
+            <div className="row">
+              <button className="btn" onClick={() => { close(); p.mandarPostal() }}>{MP.botao}</button>
+              {st.meuNome && (
+                <span className="hint">{fill(MP.assinatura, { de: st.meuNome })} · <a href="#" onClick={(e) => {
+                  e.preventDefault()
+                  p.open({ kind: 'name', o: { titulo: MP.pergunta_nome, atual: st.meuNome, dica: MP.pergunta_dica, ok: (v) => { st.meuNome = v; S.save() } } })
+                }}>{MP.trocar}</a></span>
+              )}
+            </div>
+          )}
+          <ColarPostal abrir={p.abrirLink} close={close} />
           <div className="row">
             <button className="btn sm orange" onClick={() => { st.placas = !st.placas; S.save(); close() }}>🏷️ {st.placas ? 'Esconder placas' : 'Mostrar placas'}</button>
             <button className="btn sm" onClick={() => { centerCam(window.innerWidth, window.innerHeight); close() }}>Centralizar mapa</button>
             <button className="btn sm red" onClick={() => p.open({ kind: 'reset' })}>Recomeçar do zero</button>
+          </div>
+        </div>
+      </Modal>
+    )
+  }
+  if (info.kind === 'link') {
+    return (
+      <Modal title={MP.link_titulo} onClose={close}>
+        <div className="body">
+          <p>{MP.copiar_manual}</p>
+          <textarea className="nameIn linkTxt" readOnly value={info.url} onFocus={(e) => e.target.select()} />
+          <div className="row"><button className="btn sm" onClick={close}>Fechar</button></div>
+        </div>
+      </Modal>
+    )
+  }
+  if (info.kind === 'obrigado') {
+    const cidade = info.v.bot.cidade ?? ''
+    const enviar = () => p.compartilhar(S.linkObrigado(info.v), fill(MP.obrigado_titulo, { de: st.meuNome }), fill(MP.obrigado_texto, { de: st.meuNome, cidade }))
+    return (
+      <Modal title={MP.ajudou_titulo} onClose={close}>
+        <div className="body">
+          <p>{fill(MP.ajudou, { de: info.v.bot.nome, cidade })}</p>
+          <div className="row">
+            <button className="btn orange" onClick={() => {
+              if (st.meuNome) { close(); enviar(); return }
+              p.open({ kind: 'name', o: { titulo: MP.pergunta_nome, atual: '', dica: MP.pergunta_dica, ok: (v) => { st.meuNome = v; S.save(); enviar() } } })
+            }}>{MP.obrigado_botao}</button>
+            <button className="btn sm" onClick={close}>Fechar</button>
           </div>
         </div>
       </Modal>
