@@ -10,10 +10,20 @@
     { "id": "m6", "ic": "🍔", "titulo": "Fome de negócio", "fala": "O povo quer gastar dinheiro aqui! Abre um comércio e vê o movimento.", "tarefas": [{ "t": "Construa 1 comércio", "k": "construir:comercio", "n": 1 }, { "t": "Colete 3 vezes de comércios", "k": "coletar:comercio", "n": 3 }], "premio": { "ouro": 120, "xp": 40 } },
     { "id": "m7", "ic": "🏫", "titulo": "Educação em primeiro lugar", "fala": "As crianças precisam estudar, e com escola cabe mais gente na cidade.", "tarefas": [{ "t": "Construa 1 escola", "k": "construir:escola", "n": 1 }], "premio": { "ouro": 150, "xp": 50 } },
     { "id": "m8", "ic": "🌷", "titulo": "Cidade bonita", "fala": "Turista gosta de flor e praça. Dá um trato no visual?", "tarefas": [{ "t": "Construa 2 decorações", "k": "construir:decoracao", "n": 2 }], "premio": { "ouro": 60, "xp": 25 } },
+    {"id": "m13", "ic": "🚚", "titulo": "Reforma geral", "fala": "Ficou com a casa no lugar errado? Sem drama! Toque em ✋ Mover, escolha a construção e depois o novo lugar.", "tarefas": [{"t": "Mude 2 construções de lugar", "k": "mover", "n": 2}], "premio": {"ouro": 70, "xp": 25}},
     { "id": "m9", "ic": "🥖", "titulo": "Pão quentinho", "fala": "Cidade sem padaria não é cidade! (libera no nível 2)", "tarefas": [{ "t": "Construa 1 padaria", "k": "construir:padaria", "n": 1 }], "premio": { "grana": 1, "xp": 50 } },
     { "id": "m10", "ic": "👥", "titulo": "Cidade grande", "fala": "Tá crescendo, hein! Vamos chegar a 50 moradores?", "tarefas": [{ "t": "Tenha 50 moradores", "stat": "pop", "n": 50 }], "premio": { "ouro": 200, "xp": 60 } },
     { "id": "m11", "ic": "💰", "titulo": "Comerciante de mão cheia", "fala": "Comércio girando é cidade rica. Recolhe bastante coisa dos comércios!", "tarefas": [{ "t": "Colete 10 vezes de comércios", "k": "coletar:comercio", "n": 10 }], "premio": { "ouro": 250, "xp": 80 } },
-    { "id": "m12", "ic": "🏢", "titulo": "Arranha-céu", "fala": "Agora sim, cidade de verdade: bora levantar um prédio! (libera no nível 4)", "tarefas": [{ "t": "Construa 1 prédio", "k": "construir:predio", "n": 1 }], "premio": { "grana": 2, "xp": 100 } }
+    { "id": "m12", "ic": "🏢", "titulo": "Arranha-céu", "fala": "Agora sim, cidade de verdade: bora levantar um prédio! (libera no nível 4)", "tarefas": [{ "t": "Construa 1 prédio", "k": "construir:predio", "n": 1 }], "premio": { "grana": 2, "xp": 100 } },
+    {"id": "m14", "ic": "📚", "titulo": "Rato de biblioteca", "fala": "Quem lê, cresce! A biblioteca deixa cada coleta render um pouquinho de XP extra. (libera no nível 3)", "tarefas": [{"t": "Construa 1 biblioteca", "k": "construir:biblioteca", "n": 1}], "premio": {"grana": 1, "xp": 60}},
+    {"id": "m15", "ic": "💻", "titulo": "Tempos de lan house", "fala": "Lembra do barulhinho do mouse e do 'sai da frente do PC'? Bora reviver! (libera no nível 2)", "tarefas": [{"t": "Construa 1 lan house", "k": "construir:lanhouse", "n": 1}], "premio": {"ouro": 120, "xp": 40}},
+    {"id": "m16", "ic": "🎬", "titulo": "Diversão garantida", "fala": "Cidade sem lazer fica triste. Abre um lugar pra galera se divertir!", "tarefas": [{"t": "Construa 1 lazer", "k": "construir:lazer", "n": 1}, {"t": "Colete 3 vezes em lazer", "k": "coletar:lazer", "n": 3}], "premio": {"ouro": 200, "xp": 60}},
+    {"id": "m17", "ic": "🚒", "titulo": "Cidade segura", "fala": "Se der problema, quem a gente chama? Bombeiros e delegacia, prefeita! (libera no nível 5)", "tarefas": [{"t": "Construa 1 bombeiros", "k": "construir:bombeiros", "n": 1}, {"t": "Construa 1 delegacia", "k": "construir:delegacia", "n": 1}], "premio": {"grana": 2, "xp": 90}},
+    {"id": "m18", "ic": "🌳", "titulo": "Cidade verde", "fala": "Praça, fonte, poste de luz... Capricha no visual e a cidade fica linda!", "tarefas": [{"t": "Construa 5 decorações", "k": "construir:decoracao", "n": 5}], "premio": {"ouro": 200, "xp": 50}},
+    {"id": "m19", "ic": "🏥", "titulo": "Saúde em dia", "fala": "Uma cidade grande precisa de hospital de verdade. (libera no nível 8)", "tarefas": [{"t": "Construa 1 hospital", "k": "construir:hospital", "n": 1}], "premio": {"grana": 2, "xp": 120}},
+    {"id": "m20", "ic": "🎓", "titulo": "Cidade universitária", "fala": "A grande obra do mandato: uma universidade! Cada coleta rende bastante XP extra. (libera no nível 10)", "tarefas": [{"t": "Construa 1 universidade", "k": "construir:universidade", "n": 1}], "premio": {"grana": 3, "xp": 200}},
+    {"id": "m21", "ic": "🏙️", "titulo": "Metrópole", "fala": "Duzentos moradores! Quem diria, hein? Falta pouco pra sair no jornal.", "tarefas": [{"t": "Tenha 200 moradores", "stat": "pop", "n": 200}], "premio": {"ouro": 600, "xp": 150}},
+    {"id": "m22", "ic": "🛍️", "titulo": "Turismo na cidade", "fala": "Hotel pra hospedar e shopping pra gastar: o turista vai amar. (libera nos níveis 9 e 11)", "tarefas": [{"t": "Construa 1 hotel", "k": "construir:hotel", "n": 1}, {"t": "Construa 1 shopping", "k": "construir:shopping", "n": 1}], "premio": {"grana": 4, "xp": 250}}
   ],
   "diarias": {
     "id": "pedido", "ic": "📋", "titulo": "Pedido do Dia", "quantas": 3,
@@ -27,7 +37,8 @@
       {"id": "rua", "t": "Coloque {n} pedaços de rua", "k": "rua", "faixas": [{"nivel": 1, "min": 2, "max": 3}, {"nivel": 4, "min": 3, "max": 5}]},
       {"id": "ajudar", "t": "Ajude {n} vezes na cidade de vizinhos", "k": "ajudar", "faixas": [{"nivel": 1, "min": 3, "max": 5}, {"nivel": 4, "min": 5, "max": 8}, {"nivel": 8, "min": 8, "max": 10}]},
       {"id": "presente", "t": "Mande {n} presentes pra vizinhos", "k": "presente", "faixas": [{"nivel": 1, "min": 1, "max": 2}, {"nivel": 4, "min": 2, "max": 3}]},
-      {"id": "decoracao", "t": "Construa {n} decorações", "k": "construir:decoracao", "faixas": [{"nivel": 1, "min": 1, "max": 2}, {"nivel": 5, "min": 2, "max": 3}]}
+      {"id": "decoracao", "t": "Construa {n} decorações", "k": "construir:decoracao", "faixas": [{"nivel": 1, "min": 1, "max": 2}, {"nivel": 5, "min": 2, "max": 3}]},
+      {"id": "coletar_lazer", "t": "Colete {n} vezes em lazer", "k": "coletar:lazer", "precisa": "lazer", "faixas": [{"nivel": 2, "min": 2, "max": 3}, {"nivel": 6, "min": 3, "max": 6}]}
     ],
     "baus": [
       {"ouro": 40, "xp": 10},

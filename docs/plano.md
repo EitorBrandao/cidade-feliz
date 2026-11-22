@@ -130,7 +130,15 @@ No jogo final, a lista deve continuar além da 12, acompanhando cada construçã
 - [x] Baú de 7 degraus (o 7º dá Grana); depois do 7 recomeça no 1. Uma folga por semana (segunda a domingo) não quebra a sequência; sumir mais que isso volta um degrau, nunca zera.
 - [x] Modelos, faixas por nível, baús e falas em `data/missions.json` (bloco `diarias`). Save na versão 4, com migração.
 
-**Para depois (não estão no protótipo):** expansão de terreno, praia e ilha, mover e vender construções, eventos sazonais (Natal, Carnaval), sons e música.
+**Mais construções e Mover:**
+
+- [x] Feito em 22/11/2026. O catálogo foi de 13 para 56 construções, em 5 abas (nova aba Lazer): mais casas (Casa Verde, Geminada, Mansão, Condomínio), 18 comércios (Cafeteria, Pizzaria, Farmácia, Banco, Hotel, Shopping...), lazer (Lan House, Fliperama, Cinema, Museu, Teatro, Estádio...), comunidade (Creche, Biblioteca, Igreja, Bombeiros, Delegacia, Hospital, Universidade...) e decoração (Fonte, Lago, Coreto, Parquinho, Estátua, Palmeira...). Tudo em `data/buildings.json`, nomes sugeridos em `data/names.json`.
+- [x] Biblioteca, Museu, Escola e Universidade dão XP extra em toda coleta da cidade (`xpColeta`, cada tipo conta uma vez).
+- [x] Botão ✋ Mover (e Mover na ficha da construção): toca na construção e depois no lugar novo, sem custo. Vale pra tudo, inclusive decoração. A construção leva junto nome e tempo de rendimento.
+- [x] 10 missões novas (Reforma geral, Rato de biblioteca, Cidade segura, Cidade universitária...) e um modelo novo no Pedido do Dia (lazer). As cidades dos vizinhos usam as construções novas conforme o nível.
+- Sem mudança no formato do save (continua versão 5).
+
+**Para depois (não estão no protótipo):** expansão de terreno, praia e ilha, vender construções, eventos sazonais (Natal, Carnaval), sons e música.
 
 ## Vizinhos bots
 

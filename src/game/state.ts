@@ -46,7 +46,7 @@ export interface State {
   postaisVistos: string[]
 }
 export interface Visit { bot: Bot; map: Tile[]; helps: number; nivel?: number; postal?: { id: string; de: string } }
-export type Mode = { type: 'none' } | { type: 'place'; k: string } | { type: 'road' }
+export type Mode = { type: 'none' } | { type: 'place'; k: string } | { type: 'road' } | { type: 'move'; from: [number, number] | null }
 export interface ToastOpts { big?: boolean; bot?: Bot }
 export interface AskName { titulo: string; atual: string; dica?: string; sortear?: () => string; ok: (v: string) => void }
 
@@ -66,7 +66,7 @@ export const DIRS: [number, number, 't' | 'r' | 'b' | 'l', 't' | 'r' | 'b' | 'l'
   [1, 0, 'r', 'b'], [-1, 0, 'l', 't'], [0, 1, 'b', 'l'], [0, -1, 't', 'r'],
 ]
 const blankMap = (): Tile[] => Array.from({ length: N * N }, () => ({ r: false, b: null, tree: false }))
-export const precisaNome = (k: string) => ['comercio', 'comunidade'].includes(DEFS[k].cat)
+export const precisaNome = (k: string) => ['comercio', 'comunidade', 'lazer'].includes(DEFS[k].cat)
 export const tempoMs = (k: string) => (DEFS[k].tempo ?? 0) * 1000 * MULT
 export const buildMs = (k: string) => (DEFS[k].build ?? 4) * 1000 * MULT
 export const need = (n: number) => cfg.nivel_xp.base + n * cfg.nivel_xp.por_nivel
@@ -203,6 +203,14 @@ export function popMax() {
   game.S.map.forEach((t) => { if (t.b) p += DEFS[t.b.k].popMax ?? 0 })
   return p
 }
+/** XP extra por coleta: Escola, Biblioteca, Museu e Universidade prontas (cada tipo conta uma vez). */
+export function bonusXp(now = Date.now()) {
+  const tipos = new Set<string>()
+  game.S.map.forEach((t) => { if (t.b && now >= t.b.builtAt && DEFS[t.b.k].xpColeta) tipos.add(t.b.k) })
+  let n = 0
+  tipos.forEach((k) => { n += DEFS[k].xpColeta! })
+  return n
+}
 export const track = (k: string) => { game.S.cnt[k] = (game.S.cnt[k] || 0) + 1 }
 
 // ---------- energia e XP ----------
@@ -292,6 +300,41 @@ export function toggleRoad(x: number, y: number) {
   save()
 }
 
+// ---------- mover construções ----------
+
+/** Começa a mover a construção `b` (já escolhida). */
+export function moveFrom(b: B) {
+  const i = game.S.map.findIndex((t) => t.b === b)
+  if (i < 0) return
+  setMode({ type: 'move', from: [i % N, (i / N) | 0] })
+}
+
+/** Toque no modo Mover: primeiro escolhe a construção, depois o lugar novo. Não custa nada. */
+export function tapMove(x: number, y: number) {
+  const S = game.S
+  const m = game.mode
+  if (m.type !== 'move') return
+  const tile = S.map[y * N + x]
+  if (tile.b) {
+    if (m.from && m.from[0] === x && m.from[1] === y) { game.mode = { type: 'move', from: null }; return fx.toast('Tudo bem, ficou onde estava') }
+    game.mode = { type: 'move', from: [x, y] }
+    const nm = nomeDe(tile.b, S.cidade) || DEFS[tile.b.k].nome
+    return fx.toast(`${nm}: agora toque no lugar novo`)
+  }
+  if (!m.from) return fx.toast('Primeiro toque na construção que quer mover')
+  if (tile.r) return fx.toast('Aí é rua! Escolhe um espaço de grama')
+  const src = S.map[m.from[1] * N + m.from[0]]
+  const b = src.b
+  if (!b) { game.mode = { type: 'move', from: null }; return }
+  tile.tree = false
+  tile.b = b
+  src.b = null
+  track('mover')
+  fx.float(x, y, 'mudou!', '#ffffff', 50)
+  game.mode = { type: 'move', from: null }
+  save()
+}
+
 /** Toque num tile da própria cidade, sem modo ativo. */
 export function tapCity(x: number, y: number) {
   const S = game.S
@@ -311,14 +354,13 @@ export function tapCity(x: number, y: number) {
         track('coletar')
         track('coletar:' + d.cat)
         track('coletar:' + b.k)
-        const xp = Math.ceil(d.renda / cfg.coleta_xp_divisor)
+        const xp = Math.ceil(d.renda / cfg.coleta_xp_divisor) + bonusXp(now)
         fx.float(x, y, '+' + d.renda, '#ffe36b')
         fx.float(x, y, `+${xp} XP`, '#8fd6ff', 90)
         addXP(xp)
         save()
       } else fx.openBuilding(b)
-    } else if (d.cat === 'decoracao') fx.toast(d.nome)
-    else fx.openBuilding(b)
+    } else fx.openBuilding(b)
     return
   }
   if (tile.tree) {
@@ -493,16 +535,18 @@ function genBotCity(b: Bot): Tile[] {
     const j = Math.floor(R() * (i + 1))
     ;[near[i], near[j]] = [near[j], near[i]]
   }
-  const pool = ['casa', 'casa', 'chale', 'lanchonete']
-  if (lv >= 3) pool.push('sobrado', 'padaria', 'sobrado')
-  if (lv >= 6) pool.push('mercado', 'escola')
-  if (lv >= 10) pool.push('predio', 'sorveteria', 'predio')
-  if (lv >= 14) pool.push('posto', 'predio')
+  const pool = ['casa', 'casa', 'chale', 'lanchonete', 'banca']
+  if (lv >= 3) pool.push('sobrado', 'padaria', 'sobrado', 'cafe', 'casaverde')
+  if (lv >= 5) pool.push('pizzaria', 'lanhouse', 'biblioteca', 'geminada')
+  if (lv >= 6) pool.push('mercado', 'escola', 'farmacia', 'academia')
+  if (lv >= 8) pool.push('cinema', 'igreja', 'petshop', 'creche')
+  if (lv >= 10) pool.push('predio', 'sorveteria', 'predio', 'hotel', 'banco', 'hospital')
+  if (lv >= 14) pool.push('posto', 'predio', 'universidade', 'shopping', 'estadio', 'bombeiros', 'mansao', 'museu')
   const count = Math.min(near.length, 6 + Math.round(lv * 1.8))
   const placed: B[] = []
   for (let i = 0; i < count; i++) {
     const [x, y] = near[i]
-    const k = R() < 0.12 ? pick(['praca', 'flores'], R) : pick(pool, R)
+    const k = R() < 0.14 ? pick(['praca', 'flores', 'fonte', 'poste', 'palmeira', 'coreto', 'banquinho', 'ipe'], R) : pick(pool, R)
     const bb: B = { k, builtAt: 0, start: 0 }
     if (precisaNome(k)) bb.nome = sugerirNome(k, b.nome, R)
     at(x, y).b = bb
