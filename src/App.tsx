@@ -187,6 +187,15 @@ export default function App() {
         refresh()
         return
       }
+      if (m.type === 'move') {
+        // sem construção na mão: pega o que está sob o dedo; com ela na mão: o tile tocado é o destino
+        const t = m.from ? pickTile(px, py) : pickObj(px, py) || pickTile(px, py)
+        if (!t) return
+        game.hover = t
+        S.tapMove(t[0], t[1])
+        refresh()
+        return
+      }
       const t = pickObj(px, py) || pickTile(px, py)
       if (!t) return
       if (game.visiting) S.tapVisit(t[0], t[1])
@@ -380,6 +389,15 @@ export default function App() {
           <div>Toque num espaço vazio pra construir: <b>{DEFS[mode.k].nome}</b></div>
           <button className="btn sm red" onClick={() => setMode({ type: 'none' })}>Cancelar</button>
         </div>
+      ) : mode.type === 'move' ? (
+        <div className="banner on">
+          <div>
+            {mode.from
+              ? <>Toque no lugar novo de <b>{(() => { const b = st.map[mode.from[1] * S.N + mode.from[0]].b; return b ? S.nomeDe(b, st.cidade) || DEFS[b.k].nome : '' })()}</b></>
+              : 'Toque na construção que quer mover'}
+          </div>
+          <button className="btn sm" onClick={() => setMode({ type: 'none' })}>Pronto</button>
+        </div>
       ) : mode.type === 'road' ? (
         <div className="banner on">
           <div>Toque pra colocar ou tirar rua ({cfg.rua_custo} ouro)</div>
@@ -412,6 +430,7 @@ export default function App() {
         <div className="actions">
           <button className="btn orange" disabled={!!vis} onClick={() => { setShop(true); setMode({ type: 'none' }) }}>🏪 Loja</button>
           <button className="btn" disabled={!!vis} onClick={() => setMode(mode.type === 'road' ? { type: 'none' } : { type: 'road' })}>🛣️ Ruas</button>
+          <button className="btn blue" disabled={!!vis} onClick={() => setMode(mode.type === 'move' ? { type: 'none' } : { type: 'move', from: null })}>✋ Mover</button>
           <button className="btn blue" onClick={() => { st.unread = 0; S.save(); setFeed(true) }}>
             📰 Mural{st.unread > 0 && <span className="badge on">{st.unread}</span>}
           </button>
@@ -431,8 +450,8 @@ export default function App() {
               const lock = !!d.req && st.nivel < d.req
               const afford = st[moeda] >= (d.preco ?? 0)
               const det = d.renda
-                ? `+${d.renda} a cada ${S.tempoMs(k) / 1000}s` + (d.pop ? ` · ${d.pop} moradores` : '')
-                : d.popMax ? `+${d.popMax} de população máx.` : `+${d.xp} XP · enfeita a cidade`
+                ? `+${d.renda} a cada ${S.tempoMs(k) / 1000}s` + (d.pop ? ` · ${d.pop} moradores` : '') + (d.xpColeta ? ` · +${d.xpColeta} XP por coleta` : '')
+                : d.popMax ? `+${d.popMax} de população máx.` + (d.xpColeta ? ` · +${d.xpColeta} XP por coleta` : '') : `+${d.xp} XP · enfeita a cidade`
               return (
                 <div key={k} className={`card ${!afford || lock ? 'off' : ''}`} onClick={() => {
                   if (lock) return toast(`Libera no nível ${d.req}`)
@@ -564,17 +583,19 @@ function InfoModal(p: {
     }
     const linhas = [
       ['Tipo', d.nome], d.renda ? ['Rende', `${d.renda} ouro a cada ${S.tempoMs(b.k) / 1000}s`] : null,
-      d.pop ? ['Moradores', d.pop] : null, d.popMax ? ['População máxima', `+${d.popMax}`] : null, status ? ['Status', status] : null,
+      d.pop ? ['Moradores', d.pop] : null, d.popMax ? ['População máxima', `+${d.popMax}`] : null,
+      d.xpColeta ? ['XP extra por coleta', `+${d.xpColeta} (em toda a cidade)`] : null, status ? ['Status', status] : null,
     ].filter(Boolean) as [string, string | number][]
     return (
       <Modal title={nm} onClose={close}>
         <div className="body">
           {linhas.map(([a, v]) => <div className="stat" key={a}><span>{a}</span><b>{v}</b></div>)}
           <div className="row">
-            <button className="btn sm orange" onClick={() => {
+            <button className="btn sm blue" onClick={() => { close(); S.moveFrom(b); p.refresh() }}>✋ Mover</button>
+            {d.cat !== 'decoracao' && <button className="btn sm orange" onClick={() => {
               if (b.k === 'prefeitura') return p.renameCity()
               p.open({ kind: 'name', o: { titulo: 'Renomear', atual: b.nome || d.nome, sortear: () => S.sugerirNome(b.k), ok: (v) => { b.nome = v; S.save(); p.toast(`Agora se chama ${v} ✨`) } } })
-            }}>✏️ {b.k === 'prefeitura' ? 'Renomear cidade' : 'Renomear'}</button>
+            }}>✏️ {b.k === 'prefeitura' ? 'Renomear cidade' : 'Renomear'}</button>}
             <button className="btn sm" onClick={close}>Fechar</button>
           </div>
         </div>

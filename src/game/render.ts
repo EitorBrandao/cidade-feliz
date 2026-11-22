@@ -145,6 +145,7 @@ function drawTower(sx: number, sy: number, d: Def) {
   fq(c.b, c.r, 0.35, 0.65, 0, 12, '#4a5560', 1)
   box(sx, sy, s + 0.03, h, h + 4, d.roof!)
   box(sx - 6, sy - 2, 0.18, h + 4, h + 14, '#c3cad3')
+  iconAt(d, sx + 6, sy - h - 26, 22)
 }
 function drawSchool(sx: number, sy: number, d: Def) {
   const s = 0.82
@@ -183,6 +184,183 @@ function drawSchool(sx: number, sy: number, d: Def) {
     G.fill()
     circle(p[0] + 9, p[1] - 19 + w / 2, 3, '#ffd54f')
   }
+}
+// ---------- construções grandes e de comunidade ----------
+
+function iconAt(d: Def, sx: number, y: number, size = 24) {
+  if (!d.icon) return
+  G.font = `${size}px system-ui, sans-serif`
+  G.textAlign = 'center'
+  G.textBaseline = 'middle'
+  G.fillText(d.icon, sx, y)
+}
+/** Biblioteca, museu, teatro e banco: fachada com colunas e frontão. */
+function drawLibrary(sx: number, sy: number, d: Def) {
+  const s = 0.84
+  const h = d.h!
+  shadowAt(sx, sy, 0.95)
+  box(sx, sy, 0.92, 0, 4, '#d9d2c3')
+  const c = box(sx, sy, s, 4, h, d.wall!)
+  for (let i = 0; i < 5; i++) {
+    const u = 0.08 + i * 0.2
+    fq(c.l, c.b, u, u + 0.07, 4, h - 2, '#ffffff', 1)
+  }
+  fq(c.b, c.r, 0.07, 0.14, 4, h - 2, '#ffffff', 1)
+  fq(c.b, c.r, 0.86, 0.93, 4, h - 2, '#ffffff', 1)
+  fq(c.b, c.r, 0.36, 0.64, 4, h * 0.55, shade(d.roof!, 0.8), 1)
+  win(c.b, c.r, 0.18, 0.3, h * 0.35, h * 0.72)
+  win(c.b, c.r, 0.7, 0.82, h * 0.35, h * 0.72)
+  box(sx, sy, s + 0.05, h, h + 4, '#e9e0cc')
+  gable(sx, sy, s, h + 4, 16, d.roof!, d.wall!)
+  iconAt(d, sx, sy - h - 34)
+}
+/** Universidade: prédio largo com torre central, relógio e cúpula. */
+function drawCampus(sx: number, sy: number, d: Def) {
+  const s = 0.9
+  const h = d.h!
+  shadowAt(sx, sy, 1)
+  const c = box(sx, sy, s, 0, h, d.wall!)
+  for (const v of [8, 24])
+    for (let i = 0; i < 4; i++) win(c.l, c.b, 0.07 + i * 0.235, 0.22 + i * 0.235, v, v + 11)
+  for (const v of [8, 24]) for (let i = 0; i < 3; i++) win(c.b, c.r, 0.1 + i * 0.3, 0.26 + i * 0.3, v + 6, v + 14)
+  fq(c.b, c.r, 0.38, 0.62, 0, 17, '#6d4c2e', 1)
+  box(sx, sy, s + 0.03, h, h + 4, d.roof!)
+  const t = box(sx, sy, 0.42, h + 4, h + 34, shade(d.wall!, 1.06))
+  win(t.l, t.b, 0.3, 0.7, h + 12, h + 27)
+  win(t.b, t.r, 0.3, 0.7, h + 12, h + 27)
+  box(sx, sy, 0.47, h + 34, h + 38, d.roof!)
+  const cy = sy - h - 38
+  G.beginPath()
+  G.arc(sx, cy, 15, Math.PI, 0)
+  G.fillStyle = d.roof!
+  G.fill()
+  G.strokeStyle = 'rgba(0,0,0,.3)'
+  G.stroke()
+  G.beginPath()
+  G.arc(sx - 5, cy - 7, 4, 0, 7)
+  G.fillStyle = 'rgba(255,255,255,.35)'
+  G.fill()
+  G.strokeStyle = '#555'
+  G.lineWidth = 2
+  G.beginPath()
+  G.moveTo(sx, cy - 14)
+  G.lineTo(sx, cy - 32)
+  G.stroke()
+  const w = Math.sin(T / 250) * 2
+  G.fillStyle = '#ffd54f'
+  G.beginPath()
+  G.moveTo(sx, cy - 32)
+  G.lineTo(sx + 15, cy - 28 + w)
+  G.lineTo(sx, cy - 23)
+  G.fill()
+  iconAt(d, sx + 30, sy - h - 12, 20)
+}
+/** Bombeiros: garagem com portões, listras e torre da sirene. */
+function drawStation(sx: number, sy: number, d: Def) {
+  const s = 0.8
+  const h = d.h!
+  shadowAt(sx, sy, 0.9)
+  const c = box(sx, sy, s, 0, h, d.wall!)
+  fq(c.l, c.b, 0.08, 0.44, 0, h * 0.72, '#f5f5f5', 1)
+  fq(c.l, c.b, 0.56, 0.92, 0, h * 0.72, '#f5f5f5', 1)
+  for (let j = 1; j < 5; j++) {
+    const v = (h * 0.72 * j) / 5
+    fq(c.l, c.b, 0.08, 0.44, v, v + 1.5, '#cfd8dc')
+    fq(c.l, c.b, 0.56, 0.92, v, v + 1.5, '#cfd8dc')
+  }
+  fq(c.l, c.b, 0, 1, h * 0.82, h * 0.9, '#ffffff', 1)
+  win(c.b, c.r, 0.15, 0.4, h * 0.3, h * 0.7)
+  win(c.b, c.r, 0.6, 0.85, h * 0.3, h * 0.7)
+  box(sx, sy, s + 0.03, h, h + 4, d.roof!)
+  box(sx + 22, sy - 10, 0.2, h + 4, h + 26, shade(d.wall!, 0.95))
+  box(sx + 22, sy - 10, 0.24, h + 26, h + 29, d.roof!)
+  const on = Math.sin(T / 160) > 0
+  circle(sx + 22, sy - h - 36, 5, on ? '#ff5252' : '#7a1c1c')
+  iconAt(d, sx - 12, sy - h - 22, 22)
+}
+/** Igreja: nave com telhado e torre com cruz. */
+function drawChurch(sx: number, sy: number, d: Def) {
+  const h = d.h!
+  shadowAt(sx, sy, 0.9)
+  const c = box(sx - 6, sy - 6, 0.62, 0, h, d.wall!)
+  win(c.l, c.b, 0.18, 0.36, 8, h * 0.8)
+  win(c.l, c.b, 0.62, 0.8, 8, h * 0.8)
+  gable(sx - 6, sy - 6, 0.62, h, 16, d.roof!, d.wall!)
+  const q = box(sx + 8, sy + 8, 0.3, 0, 66, d.wall!)
+  fq(q.b, q.r, 0.25, 0.75, 0, 20, '#6d4c2e', 1)
+  win(q.l, q.b, 0.3, 0.7, 36, 56)
+  const base = 66
+  const k = Cn(sx + 8, sy + 8, 0.34)
+  const apex: Pt = [sx + 8, sy + 8 - base - 34]
+  P([U(k.l, base), U(k.b, base), apex], shade(d.roof!, 0.85))
+  P([U(k.b, base), U(k.r, base), apex], shade(d.roof!, 0.7))
+  G.strokeStyle = '#f4d35e'
+  G.lineWidth = 3
+  G.beginPath()
+  G.moveTo(apex[0], apex[1] - 14)
+  G.lineTo(apex[0], apex[1] + 1)
+  G.moveTo(apex[0] - 5, apex[1] - 9)
+  G.lineTo(apex[0] + 5, apex[1] - 9)
+  G.stroke()
+}
+/** Estádio: arquibancada oval com gramado e refletores. */
+function drawStadium(sx: number, sy: number, d: Def) {
+  shadowAt(sx, sy + 4, 1)
+  const rx = 46
+  const ry = 23
+  G.fillStyle = shade(d.wall!, 0.7)
+  G.beginPath()
+  G.ellipse(sx, sy + 12, rx, ry, 0, 0, Math.PI * 2)
+  G.fill()
+  G.fillRect(sx - rx, sy, rx * 2, 12)
+  G.beginPath()
+  G.ellipse(sx, sy, rx, ry, 0, 0, Math.PI * 2)
+  G.fillStyle = d.wall!
+  G.fill()
+  G.strokeStyle = d.roof!
+  G.lineWidth = 4
+  G.stroke()
+  G.beginPath()
+  G.ellipse(sx, sy + 1, rx * 0.72, ry * 0.72, 0, 0, Math.PI * 2)
+  G.fillStyle = '#3f9a2c'
+  G.fill()
+  G.strokeStyle = 'rgba(255,255,255,.85)'
+  G.lineWidth = 1.5
+  G.stroke()
+  G.beginPath()
+  G.moveTo(sx, sy + 1 - ry * 0.72)
+  G.lineTo(sx, sy + 1 + ry * 0.72)
+  G.stroke()
+  G.beginPath()
+  G.ellipse(sx, sy + 1, 7, 3.5, 0, 0, Math.PI * 2)
+  G.stroke()
+  for (const [dx, dy] of [[-40, -6], [40, -6], [-26, 18], [26, 18]]) {
+    G.strokeStyle = '#555'
+    G.lineWidth = 2
+    G.beginPath()
+    G.moveTo(sx + dx, sy + dy + 8)
+    G.lineTo(sx + dx, sy + dy - 34)
+    G.stroke()
+    G.fillStyle = '#fff6c0'
+    G.fillRect(sx + dx - 5, sy + dy - 40, 10, 6)
+  }
+}
+/** Shopping: bloco largo com vitrine de vidro e letreiro. */
+function drawMall(sx: number, sy: number, d: Def) {
+  const h = d.h!
+  shadowAt(sx, sy, 1)
+  const c = box(sx, sy, 0.9, 0, h, d.wall!)
+  fq(c.l, c.b, 0.05, 0.95, 5, h * 0.52, '#8fd0f5', 1)
+  fq(c.b, c.r, 0.05, 0.95, 5, h * 0.52, '#7bc2ec', 1)
+  for (let i = 1; i < 7; i++) {
+    fq(c.l, c.b, i / 7 - 0.006, i / 7 + 0.006, 5, h * 0.52, '#fff')
+    fq(c.b, c.r, i / 7 - 0.006, i / 7 + 0.006, 5, h * 0.52, '#fff')
+  }
+  fq(c.b, c.r, 0.4, 0.6, 0, h * 0.4, '#455a64', 1)
+  fq(c.l, c.b, 0, 1, h * 0.6, h * 0.9, d.sign!, 1)
+  fq(c.b, c.r, 0, 1, h * 0.6, h * 0.9, shade(d.sign!, 0.82), 1)
+  box(sx, sy, 0.93, h, h + 5, d.roof!)
+  iconAt(d, sx, sy - h - 22, 30)
 }
 function drawHall(sx: number, sy: number) {
   shadowAt(sx, sy, 0.95)
@@ -233,7 +411,7 @@ function drawTree(sx: number, sy: number, sc = 1, v = 0) {
   G.fill()
   G.fillStyle = '#7a5230'
   G.fillRect(sx - 2.5 * sc, sy - 14 * sc, 5 * sc, 14 * sc)
-  const gr = [['#3f9a2c', '#57b83e', '#8fdc66'], ['#2f8a3a', '#45a84f', '#86d685'], ['#5a9a24', '#78bb35', '#b2e06a']][v % 3]
+  const gr = [['#3f9a2c', '#57b83e', '#8fdc66'], ['#2f8a3a', '#45a84f', '#86d685'], ['#5a9a24', '#78bb35', '#b2e06a'], ['#e0a800', '#f5c518', '#ffe676'], ['#e8789f', '#f79ec0', '#ffd3e3']][v % 5]
   circle(sx, sy - 20 * sc, 13 * sc, gr[0])
   circle(sx - 6 * sc, sy - 25 * sc, 10 * sc, gr[1])
   circle(sx + 6 * sc, sy - 28 * sc, 9 * sc, gr[1])
@@ -279,6 +457,235 @@ function drawFlowers(sx: number, sy: number) {
     circle(sx + u * TW * 0.25, sy + v * TH * 0.25 - 2, 2.6, pick(cols, R))
   }
 }
+// ---------- decoração nova ----------
+
+const stoneTile = (sx: number, sy: number, k = 0.9, col = '#eadfc4') => {
+  const c = Cn(sx, sy, k)
+  P([c.t, c.r, c.b, c.l], col)
+}
+function drawFountain(sx: number, sy: number) {
+  stoneTile(sx, sy)
+  G.beginPath()
+  G.ellipse(sx, sy, 26, 13, 0, 0, 7)
+  G.fillStyle = '#b9b2a2'
+  G.fill()
+  G.beginPath()
+  G.ellipse(sx, sy, 22, 11, 0, 0, 7)
+  G.fillStyle = '#6fc3f0'
+  G.fill()
+  G.fillStyle = '#b9b2a2'
+  G.fillRect(sx - 3, sy - 22, 6, 22)
+  G.beginPath()
+  G.ellipse(sx, sy - 14, 11, 5, 0, 0, 7)
+  G.fillStyle = '#cfc8b6'
+  G.fill()
+  G.beginPath()
+  G.ellipse(sx, sy - 14, 8, 3.5, 0, 0, 7)
+  G.fillStyle = '#8fd6f7'
+  G.fill()
+  G.fillStyle = 'rgba(225,247,255,.95)'
+  for (let i = 0; i < 6; i++) {
+    const a = ((i / 6) * 2 - 1) * 1.1
+    const ph = (T / 500 + i * 0.37) % 1
+    G.beginPath()
+    G.arc(sx + Math.sin(a) * 16 * ph, sy - 24 - Math.cos(a) * 14 * ph * (1 - ph) * 3.2 + ph * 6, 1.8, 0, 7)
+    G.fill()
+  }
+}
+function drawBench(sx: number, sy: number) {
+  stoneTile(sx, sy, 0.7)
+  box(sx, sy + 2, 0.34, 0, 6, '#9a6a3a')
+  box(sx - 5, sy - 3, 0.3, 6, 15, '#7a4a2b')
+  box(sx, sy + 2, 0.36, 6, 8, '#b98550')
+}
+function drawLamp(sx: number, sy: number) {
+  G.beginPath()
+  G.ellipse(sx + 2, sy + 2, 8, 4, 0, 0, 7)
+  G.fillStyle = 'rgba(0,0,0,.15)'
+  G.fill()
+  G.fillStyle = '#3d4650'
+  G.fillRect(sx - 4, sy - 5, 8, 5)
+  G.fillRect(sx - 1.5, sy - 52, 3, 48)
+  const g = G.createRadialGradient(sx, sy - 58, 2, sx, sy - 58, 22)
+  g.addColorStop(0, 'rgba(255,240,150,.7)')
+  g.addColorStop(1, 'rgba(255,240,150,0)')
+  circle(sx, sy - 58, 22, g)
+  circle(sx, sy - 58, 6, '#fff3a0')
+  G.strokeStyle = '#3d4650'
+  G.lineWidth = 2
+  G.beginPath()
+  G.arc(sx, sy - 58, 6.5, 0, 7)
+  G.stroke()
+}
+function drawPalm(sx: number, sy: number) {
+  G.beginPath()
+  G.ellipse(sx + 4, sy + 2, 13, 6, 0, 0, 7)
+  G.fillStyle = 'rgba(0,0,0,.15)'
+  G.fill()
+  G.strokeStyle = '#9a7040'
+  G.lineWidth = 6
+  G.lineCap = 'round'
+  G.beginPath()
+  G.moveTo(sx, sy)
+  G.quadraticCurveTo(sx + 8, sy - 22, sx + 3, sy - 46)
+  G.stroke()
+  G.strokeStyle = '#b58a52'
+  G.lineWidth = 2
+  for (let i = 1; i < 5; i++) {
+    G.beginPath()
+    G.moveTo(sx - 3 + i * 0.6, sy - i * 9.5)
+    G.lineTo(sx + 3 + i * 0.6, sy - i * 9.5)
+    G.stroke()
+  }
+  const tx = sx + 3
+  const ty = sy - 46
+  const sway = Math.sin(T / 700) * 2
+  const fr: [number, number][] = [[-30, 6], [-24, -8], [-8, -16], [10, -16], [26, -8], [32, 6]]
+  fr.forEach(([dx, dy], i) => {
+    G.strokeStyle = i % 2 ? '#3f9a2c' : '#57b83e'
+    G.lineWidth = 7
+    G.beginPath()
+    G.moveTo(tx, ty)
+    G.quadraticCurveTo(tx + dx * 0.5, ty + dy - 10 + sway, tx + dx, ty + dy + 8 + sway)
+    G.stroke()
+  })
+  G.lineCap = 'butt'
+  circle(tx - 3, ty + 4, 3.5, '#7a5230')
+  circle(tx + 3, ty + 5, 3.5, '#6a4526')
+}
+function drawPlayground(sx: number, sy: number) {
+  const c = Cn(sx, sy, 0.94)
+  P([c.t, c.r, c.b, c.l], '#efd9a0')
+  G.strokeStyle = '#d33f3f'
+  G.lineWidth = 3
+  G.beginPath()
+  G.moveTo(sx - 28, sy + 2)
+  G.lineTo(sx - 20, sy - 30)
+  G.lineTo(sx - 12, sy + 2)
+  G.moveTo(sx - 4, sy + 2)
+  G.lineTo(sx - 12, sy - 30)
+  G.lineTo(sx - 20, sy - 30)
+  G.stroke()
+  const sw = Math.sin(T / 400) * 5
+  G.strokeStyle = '#555'
+  G.lineWidth = 1.5
+  G.beginPath()
+  G.moveTo(sx - 20, sy - 30)
+  G.lineTo(sx - 20 + sw, sy - 6)
+  G.stroke()
+  G.fillStyle = '#2c8fe0'
+  G.fillRect(sx - 25 + sw, sy - 7, 10, 3.5)
+  box(sx + 14, sy - 2, 0.16, 0, 28, '#ffca28')
+  P([[sx + 12, sy - 30], [sx + 22, sy - 28], [sx + 40, sy + 4], [sx + 30, sy + 6]], '#e53935')
+  G.strokeStyle = '#fff'
+  G.lineWidth = 1.5
+  G.beginPath()
+  G.moveTo(sx + 17, sy - 29)
+  G.lineTo(sx + 35, sy + 5)
+  G.stroke()
+}
+function drawGazebo(sx: number, sy: number, d: Def) {
+  shadowAt(sx, sy, 0.85)
+  box(sx, sy, 0.78, 0, 5, '#e8dcc0')
+  const c = Cn(sx, sy, 0.6)
+  const post = (p: Pt) => {
+    G.fillStyle = d.wall ?? '#fff'
+    G.strokeStyle = 'rgba(40,30,10,.4)'
+    G.lineWidth = 1
+    G.fillRect(p[0] - 2.5, p[1] - 44, 5, 41)
+    G.strokeRect(p[0] - 2.5, p[1] - 44, 5, 41)
+  }
+  post(c.t)
+  post(c.l)
+  post(c.r)
+  G.strokeStyle = shade(d.wall ?? '#fff', 0.8)
+  G.lineWidth = 2
+  G.beginPath()
+  G.moveTo(c.l[0], c.l[1] - 14)
+  G.lineTo(c.b[0], c.b[1] - 14)
+  G.lineTo(c.r[0], c.r[1] - 14)
+  G.stroke()
+  post(c.b)
+  const rb = Cn(sx, sy, 0.78)
+  const apex: Pt = [sx, sy - 70]
+  const col = d.roof ?? '#c0392b'
+  P([U(rb.t, 44), U(rb.l, 44), apex], shade(col, 0.8))
+  P([U(rb.t, 44), U(rb.r, 44), apex], shade(col, 0.9))
+  P([U(rb.l, 44), U(rb.b, 44), apex], shade(col, 1.0))
+  P([U(rb.b, 44), U(rb.r, 44), apex], shade(col, 0.78))
+  circle(apex[0], apex[1] - 3, 3.5, '#ffd54f')
+}
+function drawLake(sx: number, sy: number) {
+  G.beginPath()
+  G.ellipse(sx, sy, 41, 20, 0, 0, 7)
+  G.fillStyle = '#d9c58f'
+  G.fill()
+  const g = G.createLinearGradient(sx, sy - 18, sx, sy + 18)
+  g.addColorStop(0, '#7fd0f5')
+  g.addColorStop(1, '#3c9fd8')
+  G.beginPath()
+  G.ellipse(sx, sy, 36, 17, 0, 0, 7)
+  G.fillStyle = g
+  G.fill()
+  G.strokeStyle = 'rgba(255,255,255,.55)'
+  G.lineWidth = 1.5
+  for (let i = 0; i < 2; i++) {
+    const r = ((T / 1500 + i * 0.5) % 1)
+    G.globalAlpha = 1 - r
+    G.beginPath()
+    G.ellipse(sx - 8, sy + 2, 4 + r * 14, 2 + r * 7, 0, 0, 7)
+    G.stroke()
+  }
+  G.globalAlpha = 1
+  for (const [dx, dy] of [[14, -3], [22, 5], [-20, 4]] as [number, number][]) {
+    G.beginPath()
+    G.ellipse(sx + dx, sy + dy, 6, 3, 0, 0, 7)
+    G.fillStyle = '#3f9a2c'
+    G.fill()
+  }
+  circle(sx + 14, sy - 5, 2.4, '#ff8fb8')
+  const bob = Math.sin(T / 500) * 1.5
+  G.beginPath()
+  G.ellipse(sx - 14, sy - 2 + bob, 6, 3.5, 0, 0, 7)
+  G.fillStyle = '#fff'
+  G.fill()
+  circle(sx - 9, sy - 6 + bob, 2.6, '#fff')
+  P([[sx - 7, sy - 6 + bob], [sx - 3, sy - 5 + bob], [sx - 7, sy - 4 + bob]], '#ff9800', false)
+  G.strokeStyle = '#4f8a2a'
+  G.lineWidth = 2
+  for (const dx of [32, 35, 38]) {
+    G.beginPath()
+    G.moveTo(sx + dx, sy + 8)
+    G.lineTo(sx + dx - 1, sy - 8)
+    G.stroke()
+  }
+}
+function drawStatue(sx: number, sy: number) {
+  stoneTile(sx, sy, 0.86)
+  shadowAt(sx, sy, 0.4)
+  box(sx, sy, 0.38, 0, 22, '#cfcfd4')
+  fq(Cn(sx, sy, 0.38).l, Cn(sx, sy, 0.38).b, 0.25, 0.75, 8, 15, '#b0b0b8', 1)
+  const y = sy - 22
+  G.fillStyle = '#b98a4a'
+  G.strokeStyle = '#7a5a2a'
+  G.lineWidth = 1
+  G.beginPath()
+  G.moveTo(sx - 6, y)
+  G.lineTo(sx - 5, y - 20)
+  G.lineTo(sx + 5, y - 20)
+  G.lineTo(sx + 6, y)
+  G.closePath()
+  G.fill()
+  G.stroke()
+  G.beginPath()
+  G.moveTo(sx + 4, y - 18)
+  G.lineTo(sx + 12, y - 32)
+  G.lineTo(sx + 15, y - 30)
+  G.lineTo(sx + 7, y - 15)
+  G.fill()
+  circle(sx, y - 26, 5.5, '#b98a4a')
+  circle(sx - 2, y - 28, 1.8, 'rgba(255,255,255,.4)')
+}
 export function drawKind(k: string, sx: number, sy: number) {
   const d = DEFS[k]
   switch (d.draw) {
@@ -288,8 +695,22 @@ export function drawKind(k: string, sx: number, sy: number) {
     case 'school': drawSchool(sx, sy, d); break
     case 'hall': drawHall(sx, sy); break
     case 'plaza': drawPlaza(sx, sy); break
-    case 'tree': drawTree(sx, sy, 1.05, 0); break
+    case 'tree': drawTree(sx, sy, 1.05, d.v ?? 0); break
     case 'flowers': drawFlowers(sx, sy); break
+    case 'library': drawLibrary(sx, sy, d); break
+    case 'campus': drawCampus(sx, sy, d); break
+    case 'station': drawStation(sx, sy, d); break
+    case 'church': drawChurch(sx, sy, d); break
+    case 'stadium': drawStadium(sx, sy, d); break
+    case 'mall': drawMall(sx, sy, d); break
+    case 'fountain': drawFountain(sx, sy); break
+    case 'bench': drawBench(sx, sy); break
+    case 'lamp': drawLamp(sx, sy); break
+    case 'palm': drawPalm(sx, sy); break
+    case 'playground': drawPlayground(sx, sy); break
+    case 'gazebo': drawGazebo(sx, sy, d); break
+    case 'lake': drawLake(sx, sy); break
+    case 'statue': drawStatue(sx, sy); break
   }
 }
 export function topOf(d: { draw: string; h?: number }) {
@@ -297,12 +718,26 @@ export function topOf(d: { draw: string; h?: number }) {
   switch (d.draw) {
     case 'house': return h + 24
     case 'shop': return h + 38
-    case 'tower': return h + 14
+    case 'tower': return h + 30
     case 'school': return h + 30
     case 'hall': return 72
     case 'plaza': return 20
     case 'tree': return 38
     case 'flowers': return 10
+    case 'library': return h + 46
+    case 'campus': return h + 76
+    case 'station': return h + 46
+    case 'church': return 112
+    case 'stadium': return 70
+    case 'mall': return h + 40
+    case 'fountain': return 40
+    case 'bench': return 24
+    case 'lamp': return 72
+    case 'palm': return 72
+    case 'playground': return 46
+    case 'gazebo': return 76
+    case 'lake': return 12
+    case 'statue': return 58
   }
   return 30
 }
@@ -591,17 +1026,26 @@ export function render(ctx: Ctx, W: number, H: number, DPR: number, t: number) {
     const c = Cn(sx, sy, 1)
     P([c.t, c.r, c.b, c.l], ok ? 'rgba(120,255,120,.45)' : 'rgba(255,80,80,.45)', false)
   }
+  if (mode.type === 'move' && mode.from) {
+    const [fx, fy] = iso(mode.from[0], mode.from[1])
+    const c = Cn(fx, fy, 1)
+    P([c.t, c.r, c.b, c.l], 'rgba(255,214,60,.6)', false)
+  }
   drawCars()
   for (let s = 0; s <= 2 * N - 2; s++)
     for (let x = Math.max(0, s - N + 1); x <= Math.min(N - 1, s); x++) {
       const y = s - x
       const tl = map[y * N + x]
       const [sx, sy] = iso(x, y)
+      const levantada = mode.type === 'move' && mode.from && mode.from[0] === x && mode.from[1] === y
+      if (levantada) G.globalAlpha = 0.45
       if (tl.b) drawBuilding(tl.b, sx, sy, now)
       else if (tl.tree) drawTree(sx, sy, 0.85 + ((x * 7 + y * 3) % 4) * 0.09, (x + y) % 3)
-      if (mode.type === 'place' && hv && hv[0] === x && hv[1] === y && canPlace(x, y)) {
+      if (levantada) G.globalAlpha = 1
+      const fantasma = mode.type === 'place' ? mode.k : mode.type === 'move' && mode.from ? map[mode.from[1] * N + mode.from[0]].b?.k : undefined
+      if (fantasma && hv && hv[0] === x && hv[1] === y && canPlace(x, y)) {
         G.globalAlpha = 0.65
-        drawKind(mode.k, sx, sy)
+        drawKind(fantasma, sx, sy)
         G.globalAlpha = 1
       }
     }

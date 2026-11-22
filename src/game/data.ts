@@ -7,7 +7,10 @@ import botsJson from '../../data/bots.json'
 import messagesJson from '../../data/messages.json'
 import missionsJson from '../../data/missions.json'
 
-export type Draw = 'house' | 'shop' | 'tower' | 'school' | 'hall' | 'plaza' | 'tree' | 'flowers'
+export type Draw =
+  | 'house' | 'shop' | 'tower' | 'school' | 'hall' | 'plaza' | 'tree' | 'flowers'
+  | 'library' | 'campus' | 'station' | 'church' | 'stadium' | 'mall'
+  | 'fountain' | 'bench' | 'lamp' | 'palm' | 'playground' | 'gazebo' | 'lake' | 'statue'
 export interface Def {
   nome: string
   cat: string
@@ -17,6 +20,8 @@ export interface Def {
   tempo?: number
   pop?: number
   popMax?: number
+  /** XP extra em toda coleta, enquanto tiver uma dessas construções pronta (conta uma vez por tipo) */
+  xpColeta?: number
   xp?: number
   build?: number
   req?: number
@@ -28,6 +33,8 @@ export interface Def {
   h?: number
   floors?: number
   cross?: boolean
+  /** variação de cor da árvore */
+  v?: number
 }
 export interface Bot {
   id: string
