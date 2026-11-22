@@ -172,6 +172,10 @@ Cada perfil tem pesos diferentes pra cada tipo. Os textos ficam em `messages.jso
 - [x] Depois das 5 ajudas, dá pra mandar um link de obrigado; quem abre ganha um presente, uma vez só por cartão (`postaisVistos`).
 - [x] Tudo que vem do link é conferido (tamanho, 16x16 tiles, construção existente, nomes até 24 letras). Link quebrado só mostra um aviso. Save na versão 5, com migração.
 
+**Versão e atualização:**
+
+- [x] Feito em 22/11/2026. A versão e a data do build aparecem no rodapé das Opções (⚙). Ao abrir o jogo, se tiver versão nova, ela baixa e a página recarrega sozinha (o save é gravado antes); depois o Seu Joaquim avisa "Chegou novidade!" uma vez.
+
 **Opcional, só no fim:** uma IA local (ex.: Ollama com modelo pequeno) pode variar os recados, ainda sem internet. Começar com frases prontas.
 
 ## Fases

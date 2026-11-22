@@ -73,6 +73,13 @@ export default function App() {
       centerCam(W, H)
       refresh()
     }
+    // avisa uma vez quando o jogo abriu numa versão nova
+    try {
+      const k = 'cidade-feliz-versao'
+      const antes = localStorage.getItem(k)
+      if (antes && antes !== __VERSAO__) setTimeout(() => toast(fill(MSG.atualizado, { v: __VERSAO__ }), { bot: ASSESSOR }), 1500)
+      localStorage.setItem(k, __VERSAO__)
+    } catch { /* sem armazenamento: sem aviso */ }
     const evs = S.simulateAway()
     if (game.firstTime || evs.length) setInfo({ kind: 'welcome', evs, first: game.firstTime })
     S.save()
@@ -670,6 +677,7 @@ function InfoModal(p: {
             </div>
           )}
           <ColarPostal abrir={p.abrirLink} close={close} />
+          <div className="hint versao">{fill(MSG.versao, { v: __VERSAO__, data: __BUILD__ })}</div>
           <div className="row">
             <button className="btn sm orange" onClick={() => { st.placas = !st.placas; S.save(); close() }}>🏷️ {st.placas ? 'Esconder placas' : 'Mostrar placas'}</button>
             <button className="btn sm" onClick={() => { centerCam(window.innerWidth, window.innerHeight); close() }}>Centralizar mapa</button>

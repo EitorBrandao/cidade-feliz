@@ -1,10 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import pkg from './package.json'
 
 // Publicado em https://eitorbrandao.github.io/cidade-feliz/
 export default defineConfig({
   base: '/cidade-feliz/',
+  // versão e data do build, mostradas nas Opções
+  define: {
+    __VERSAO__: JSON.stringify(pkg.version),
+    __BUILD__: JSON.stringify(new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })),
+  },
   plugins: [
     react(),
     VitePWA({

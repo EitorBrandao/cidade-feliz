@@ -61,5 +61,7 @@
     "obrigado_alguem": "Um vizinho",
     "obrigado_repetido": "Esse presente você já abriu 😉",
     "avatar": {"cor": "#e5568a", "long": true, "hair": "#5a3a1a", "skin": "#f1c7a5"}
-  }
+  },
+  "versao": "Versão {v} · {data}",
+  "atualizado": "Chegou novidade! A cidade foi atualizada pra versão {v} ✨"
 }
