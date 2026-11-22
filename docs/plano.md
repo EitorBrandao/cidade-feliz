@@ -80,7 +80,7 @@ Todos os sistemas abaixo já funcionam no protótipo; a tarefa é portá-los pro
 
 - **Mapa:** grade 16x16; cada tile guarda se é rua, se tem árvore e qual construção tem. Arrastar move a câmera, pinça ou roda do mouse dá zoom. Desenho em ordem de profundidade (x + y).
 - **Construção:** escolher na Loja, tocar num tile vazio. Mostra fantasma verde/vermelho. Fica em obra (andaime + barra) por alguns segundos antes de render.
-- **Produção:** cada construção guarda o horário do último ciclo. Quando passa o tempo, aparece a moeda; tocar coleta, gasta 1 energia e reinicia o ciclo. Usa o relógio do sistema, então rende com o jogo fechado.
+- **Produção:** cada construção guarda o horário do último ciclo. Quando passa o tempo, aparece a moeda; tocar coleta sem gastar energia (custo em `config.json`) e reinicia o ciclo. Usa o relógio do sistema, então rende com o jogo fechado.
 - **Moedas:** Ouro (ganho jogando) e Grana (rara: 1 por nível e presentes). Não existe compra com dinheiro real.
 - **Energia:** máximo 15, +1 a cada intervalo fixo, enche ao subir de nível; o máximo cresce 1 a cada 2 níveis.
 - **XP e nível:** XP por coletar, construir, cortar árvore e ajudar vizinhos. XP do próximo nível = 50 + nível x 30. Nível novo libera construções.
