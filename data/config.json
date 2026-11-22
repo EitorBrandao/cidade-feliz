@@ -5,7 +5,7 @@
   "time_multiplier": 1,
   "autosave_seconds": 4,
   "start": { "ouro": 600, "grana": 3, "energia": 12, "nivel": 1, "cidade": "Cidade Feliz" },
-  "energia": { "max_base": 15, "regen_segundos": 30, "mais_um_a_cada_niveis": 2, "presente_teto_extra": 5 },
+  "energia": { "custo_coleta": 0, "max_base": 15, "regen_segundos": 30, "mais_um_a_cada_niveis": 2, "presente_teto_extra": 5 },
   "nivel_xp": { "base": 50, "por_nivel": 30 },
   "grana_por_nivel": 1,
   "rua_custo": 10,

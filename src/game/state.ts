@@ -347,8 +347,9 @@ export function tapCity(x: number, y: number) {
     if (d.renda) {
       const left = tempoMs(b.k) - (now - b.start)
       if (left <= 0) {
-        if (S.energia < 1) return fx.toast('Sem energia! ⚡ Espera recarregar ou aceita presente de vizinho')
-        S.energia--
+        const custo = cfg.energia.custo_coleta
+        if (S.energia < custo) return fx.toast('Sem energia! ⚡ Espera recarregar ou aceita presente de vizinho')
+        S.energia -= custo
         S.ouro += d.renda
         b.start = now
         track('coletar')
